@@ -7,25 +7,6 @@ from config import db
 
 app = FastHTML()
 
-# Add custom CSS for search results
-app.add_css("""
-.search-result {
-    margin-bottom: 1.5rem;
-}
-.search-result h3 {
-    margin-bottom: 0.2rem;
-}
-.search-result .url {
-    color: #006621;
-    font-size: 0.9em;
-    margin-bottom: 0.2rem;
-}
-.search-result .meta {
-    color: #545454;
-    font-size: 0.9em;
-}
-""")
-
 
 @app.get("/")
 def index():
@@ -47,21 +28,21 @@ def search(user_id: str | None = None, saved_before: str | None = None):
     )
 
     url_cards = [
-        Div(
+        Article(
             H3(A(url.title, href=url.full_url)),
-            P(url.full_url, cls="url"),
-            P(
-                Span(f"Saved: {url.saved_at_human}", cls="meta"),
+            Small(
+                url.full_url,
+                Br(),
+                f"Saved: {url.saved_at_human}",
                 " • ",
-                A("View snapshot", href=f"/snapshot/{user_id}/{url.url_id}", cls="meta"),
+                A("View snapshot", href=f"/snapshot/{user_id}/{url.url_id}"),
             ),
-            cls="search-result"
         ) for url in urls
     ]
 
     older_urls_btn = A("Older URLs", href=f"/search?user_id={user_id}&saved_before={oldest_saved_at}",
-                       role="button", cls="secondary") if urls and oldest_saved_at else None
-    reset_btn = A("Reset to newest", href=f"/search?user_id={user_id}", role="button", cls="secondary") if saved_before else None
+                       role="button", cls="outline") if urls and oldest_saved_at else None
+    reset_btn = A("Reset to newest", href=f"/search?user_id={user_id}", role="button", cls="outline") if saved_before else None
 
     return Titled("Search",
       Main(
