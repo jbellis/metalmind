@@ -21,31 +21,30 @@ def search(user_id: str | None = None, saved_before: str | None = None):
     urls, oldest_saved_at = logic.recent_urls(db, user_id, saved_before)
 
     search_form = Form(
-        Input(type="text", name="search_text", placeholder="Enter search text", cls="form-control"),
+        Input(type="text", name="search_text", placeholder="Enter search text"),
         Input(type="hidden", name="user_id_str", value=user_id),
-        Button("Search", type="submit", cls="btn btn-primary"),
+        Button("Search", type="submit"),
         action="/results", method="post"
     )
 
     url_cards = [
-        Card(
-            H5(A(url.title, href=url.full_url), cls="card-title"),
-            P(f"Saved at: {url.saved_at_human}", cls="card-text"),
-            P(A("View snapshot", href=f"/snapshot/{user_id}/{url.url_id}"), cls="card-text"),
-            cls="mb-3"
+        Article(
+            H3(A(url.title, href=url.full_url)),
+            P(f"Saved at: {url.saved_at_human}"),
+            P(A("View snapshot", href=f"/snapshot/{user_id}/{url.url_id}")),
         ) for url in urls
     ]
 
     older_urls_btn = A("Older URLs", href=f"/search?user_id={user_id}&saved_before={oldest_saved_at}",
-                       cls="btn btn-primary") if urls and oldest_saved_at else None
-    reset_btn = A("Reset to newest", href=f"/search?user_id={user_id}", cls="btn btn-primary") if saved_before else None
+                       role="button") if urls and oldest_saved_at else None
+    reset_btn = A("Reset to newest", href=f"/search?user_id={user_id}", role="button") if saved_before else None
 
     return Titled("Search",
-      Container(
+      Main(
           search_form,
-          H1("Recent URLs", cls="mt-5"),
+          H2("Recent URLs"),
           *url_cards,
-          Div(older_urls_btn, reset_btn, cls="mt-3")
+          Div(older_urls_btn, reset_btn)
       )
   )
 
@@ -56,9 +55,9 @@ def results(user_id_str: str, search_text: str):
     result_items = [Li(f"{result.title} - {result.full_url}") for result in search_results]
 
     return Titled("Search Results",
-      Container(
+      Main(
           Ul(*result_items),
-          A("Back to Search", href=f"/search?user_id={user_id_str}", cls="btn btn-primary")
+          A("Back to Search", href=f"/search?user_id={user_id_str}", role="button")
       )
   )
 
@@ -78,9 +77,9 @@ def snapshot(user_id: str, url_id: str):
     saved_at = logic._uuid1_to_datetime(UUID(url_id))
 
     return Titled(f"Snapshot: {title}",
-      Container(
+      Main(
           P(f"Saved at: {saved_at}"),
-          Div(formatted_content, cls="formatted-content")
+          Article(formatted_content)
       )
   )
 
