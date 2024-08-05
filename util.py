@@ -1,3 +1,4 @@
+from urllib.parse import urlparse
 from datetime import datetime
 
 from dateutil.relativedelta import relativedelta
@@ -25,3 +26,13 @@ def humanize_datetime(dt: datetime) -> str:
         return "Last Month"
     else:
         return f"{delta.months} Months Ago"
+
+
+def humanize_url(url: str) -> str:
+    """
+    https://cloud.oracle.com/networking?region=us-phoenix-1
+    -> cloud.oracle.com/networking
+    """
+    parsed = urlparse(url)
+    raw = parsed.hostname + parsed.path
+    return raw if len(raw) < 80 else raw[:77] + '...'

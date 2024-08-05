@@ -1,11 +1,10 @@
 from fasthtml.common import *
-import json
-import os
 from uuid import UUID
 import logic
 from config import db
+from util import humanize_url
 
-app = FastHTML()
+app = FastHTML(hdrs=[picolink])
 
 
 @app.get("/")
@@ -21,21 +20,21 @@ def search(user_id: str | None = None, saved_before: str | None = None):
     urls, oldest_saved_at = logic.recent_urls(db, user_id, saved_before)
 
     search_form = Form(
-        Input(type="text", name="search_text", placeholder="Enter search text"),
-        Input(type="hidden", name="user_id_str", value=user_id),
-        Button("Search", type="submit"),
+        Group(Input(type="text", name="search_text", placeholder="Enter search text"),
+              Input(type="hidden", name="user_id_str", value=user_id),
+              Button("Search", type="submit")),
         action="/results", method="post"
     )
 
     url_cards = [
         Article(
-            H3(A(url.title, href=url.full_url)),
+            H3(A(url.title, href=f"/snapshot/{user_id}/{url.url_id}")),
             Small(
-                url.full_url,
+                humanize_url(url.full_url),
                 Br(),
                 f"Saved: {url.saved_at_human}",
                 " • ",
-                A("View snapshot", href=f"/snapshot/{user_id}/{url.url_id}"),
+                A("View original", href=url.full_url),
             ),
         ) for url in urls
     ]
@@ -57,15 +56,22 @@ def search(user_id: str | None = None, saved_before: str | None = None):
 @app.post("/results")
 def results(user_id_str: str, search_text: str):
     search_results = logic.search(db, user_id_str, search_text)
-    result_items = [Li(f"{result.title} - {result.full_url}") for result in search_results]
+
+    result_cards = []
+    for result in search_results:
+        chunks_list = Ul(*[Li(f"{chunk[0]}") for chunk in result.chunks],
+                         cls="list-group list-group-flush")
+        card = Article(H3(A(result.title, href=f"/snapshot/{user_id_str}/{result.url_id}")),
+                       P(f"Saved at: {result.saved_at_human}",
+                         A("View original", href=result.full_url)),
+                       chunks_list,
+                       cls="card")
+        result_cards.append(card)
 
     return Titled("Search Results",
-      Main(
-          Ul(*result_items),
-          A("Back to Search", href=f"/search?user_id={user_id_str}", role="button")
-      )
-  )
-
+                  Main(*result_cards,
+                       A("Back to Search", href=f"/search?user_id={user_id_str}", role="button"),
+                       cls="container"))
 
 @app.post("/save_if_new")
 def save_if_new(url: str, title: str, text_content: str, user_id: str):
