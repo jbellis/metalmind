@@ -10,7 +10,7 @@ app = FastHTML()
 
 @app.get("/")
 def index():
-    return Titled("Search App", H1("Welcome to the Search App"))
+    return Titled("MetalMind", H2("Welcome to MetalMind"))
 
 
 @app.get("/search")
@@ -42,7 +42,6 @@ def search(user_id: str | None = None, saved_before: str | None = None):
 
     return Titled("Search",
       Container(
-          H1("Search", cls="mt-5"),
           search_form,
           H1("Recent URLs", cls="mt-5"),
           *url_cards,
@@ -54,11 +53,10 @@ def search(user_id: str | None = None, saved_before: str | None = None):
 @app.post("/results")
 def results(user_id_str: str, search_text: str):
     search_results = logic.search(db, user_id_str, search_text)
-    result_items = [Li(f"{result.title} - {result.url}") for result in search_results]
+    result_items = [Li(f"{result.title} - {result.full_url}") for result in search_results]
 
     return Titled("Search Results",
       Container(
-          H1("Search Results"),
           Ul(*result_items),
           A("Back to Search", href=f"/search?user_id={user_id_str}", cls="btn btn-primary")
       )
@@ -81,21 +79,10 @@ def snapshot(user_id: str, url_id: str):
 
     return Titled(f"Snapshot: {title}",
       Container(
-          H1(title),
           P(f"Saved at: {saved_at}"),
           Div(formatted_content, cls="formatted-content")
       )
   )
 
 
-@app.get("/snapshot/stream/{user_id}/{url_id}")
-async def snapshot_stream(user_id: str, url_id: str):
-    async def generate():
-        async for formatted_content in logic.stream_snapshot(db, user_id, url_id):
-            yield f'data: {json.dumps({"formatted_content": formatted_content})}\n\n'
-        yield 'event: EOF\ndata: {}\n\n'
-
-    return StreamingResponse(generate(), media_type='text/event-stream')
-
-
-serve(port=80)
+serve()
