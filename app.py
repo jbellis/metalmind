@@ -13,9 +13,14 @@ def index():
 
 
 @app.get("/search")
-def search(user_id: str | None = None, saved_before: str | None = None):
-    if not user_id:
-        return Div("Error: user_id not provided", cls="alert alert-danger")
+def search(session, user_id: str | None = None, saved_before: str | None = None):
+    if user_id:
+        session['user_id'] = user_id
+    else:
+        try:
+            user_id = session['user_id']
+        except KeyError:
+            return Titled("Search", H2("Missing user ID"))
 
     urls, oldest_saved_at = logic.recent_urls(db, user_id, saved_before)
 
@@ -28,7 +33,7 @@ def search(user_id: str | None = None, saved_before: str | None = None):
 
     url_cards = [
         Article(
-            H3(A(url.title, href=f"/snapshot/{user_id}/{url.url_id}")),
+            H3(A(url.title, href=f"/snapshot/{url.url_id}")),
             Small(
                 humanize_url(url.full_url),
                 Br(),
@@ -39,9 +44,9 @@ def search(user_id: str | None = None, saved_before: str | None = None):
         ) for url in urls
     ]
 
-    older_urls_btn = A("Older URLs", href=f"/search?user_id={user_id}&saved_before={oldest_saved_at}",
+    older_urls_btn = A("Older URLs", href=f"/search?saved_before={oldest_saved_at}",
                        role="button", cls="outline") if urls and oldest_saved_at else None
-    reset_btn = A("Reset to newest", href=f"/search?user_id={user_id}", role="button", cls="outline") if saved_before else None
+    reset_btn = A("Reset to newest", href=f"/search", role="button", cls="outline") if saved_before else None
 
     return Titled("Search",
       Main(
@@ -54,14 +59,15 @@ def search(user_id: str | None = None, saved_before: str | None = None):
 
 
 @app.post("/results")
-def results(user_id_str: str, search_text: str):
-    search_results = logic.search(db, user_id_str, search_text)
+def results(session, search_text: str):
+    user_id = session['user_id']
+    search_results = logic.search(db, user_id, search_text)
 
     result_cards = []
     for result in search_results:
         chunks_list = Ul(*[Li(f"{chunk[0]}") for chunk in result.chunks],
                          cls="list-group list-group-flush")
-        card = Article(H3(A(result.title, href=f"/snapshot/{user_id_str}/{result.url_id}")),
+        card = Article(H3(A(result.title, href=f"/snapshot{result.url_id}")),
                        P(f"Saved at: {result.saved_at_human}",
                          A("View original", href=result.full_url)),
                        chunks_list,
@@ -70,7 +76,7 @@ def results(user_id_str: str, search_text: str):
 
     return Titled("Search Results",
                   Main(*result_cards,
-                       A("Back to Search", href=f"/search?user_id={user_id_str}", role="button"),
+                       A("Back to Search", href=f"/search", role="button"),
                        cls="container"))
 
 @app.post("/save_if_new")
@@ -82,15 +88,16 @@ def save_if_new(url: str, title: str, text_content: str, user_id: str):
     return JSON({"saved": result})
 
 
-@app.get("/snapshot/{user_id}/{url_id}")
-def snapshot(user_id: str, url_id: str):
-    title, formatted_content = logic.load_snapshot(db, user_id, url_id)
+@app.get("/snapshot/{url_id}")
+def snapshot(session, url_id: str):
+    user_id = session['user_id']
+    title, text_content, formatted_content = logic.load_snapshot(db, user_id, url_id)
     saved_at = logic._uuid1_to_datetime(UUID(url_id))
 
     return Titled(f"Snapshot: {title}",
       Main(
           P(f"Saved at: {saved_at}"),
-          Article(formatted_content)
+          Article(text_content)
       )
   )
 

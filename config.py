@@ -6,6 +6,8 @@ from cassandra.cluster import Cluster
 
 from db import DB
 
+# ignore these
+
 
 # Load secret keys
 _secrets_dir = Path('secrets')

@@ -235,5 +235,5 @@ def search(db: DB, user_id_str: str, search_text: str) -> list:
 def load_snapshot(db: DB, user_id_str: str, url_id_str: str) -> tuple[str, str]:
     user_id = UUID(user_id_str)
     url_id = UUID(url_id_str)
-    _, _, title, _, formatted_content = db.load_snapshot(user_id, url_id)
-    return title, formatted_content
+    _, _, title, text_content, formatted_content = db.load_snapshot(user_id, url_id)
+    return title, text_content, formatted_content
