@@ -114,9 +114,12 @@ def _group_sentences_with_overlap(sentences, max_tokens):
     return grouped_sentences
 def _save_article(db: DB, path: str, text: str, url: str, title: str, user_id: uuid4, url_id: Optional[uuid1] = None) -> None:
     text = re.sub(r'\s+', ' ', text)
+    title = re.sub(r'\s+', ' ', title)
     sentences = [sentence.strip() for sentence in nltk.sent_tokenize(text)]
     sentence_groups = _group_sentences_with_overlap(sentences, 100)
-    group_texts = ([title] if title else []) + [' '.join(group) for group in sentence_groups]
+    group_texts = [' '.join(group) for group in sentence_groups]
+    if title not in text:
+        group_texts.insert(0, title)
     # print(group_texts)
     vectors = _encode(group_texts)
     db.upsert_chunks(user_id, path, url, title, text, zip(group_texts, vectors), url_id)
