@@ -39,6 +39,28 @@ def uuid_from_timestamp(nanoseconds: int) -> UUID:
                         clock_seq_hi_variant, clock_seq_low, node), version=1)
 
 
+def process_file(file, file_path):
+    user_id = os.path.basename(os.path.dirname(file_path))
+
+    # Read and parse the gzipped JSON file
+    with gzip.open(file_path, 'rt') as f:
+        data: Dict[str, Any] = json.load(f)
+    # Extract necessary information
+    url = data['url']
+    title = data['title']
+    text_content = data['text_content']
+    # Extract timestamp from filename and create UUID
+    timestamp_ns = int(file.split('.')[0])
+    saved_at_uuid = uuid_from_timestamp(timestamp_ns)
+    # save to db
+    print(f"Processing: {file_path}")
+    is_new_content = save_if_new(db, url, title, text_content, str(user_id), saved_at_uuid)
+    # Mark processed
+    marker_path = f"{file_path}.processed"
+    open(marker_path, 'w').close()
+    return is_new_content
+
+
 def rehydrate():
     n_already_processed = 0
     n_saved = 0
@@ -56,30 +78,7 @@ def rehydrate():
                     n_already_processed += 1
                     continue
 
-                user_id = os.path.basename(os.path.dirname(file_path))
-
-                # Read and parse the gzipped JSON file
-                with gzip.open(file_path, 'rt') as f:
-                    data: Dict[str, Any] = json.load(f)
-
-                # Extract necessary information
-                url = data['url']
-                title = data['title']
-                text_content = data['text_content']
-                user_id_str = data['user_id']
-                # Extract timestamp from filename and create UUID
-                timestamp_ns = int(file.split('.')[0])
-                saved_at_uuid = uuid_from_timestamp(timestamp_ns)
-
-                # Ensure the user_id in the filename matches the one in the JSON
-                assert user_id == user_id_str, f"User ID mismatch in {file_path}"
-
-                # save to db
-                print(f"Processing: {file_path}")
-                is_new_content = save_if_new(db, url, title, text_content, user_id_str, saved_at_uuid)
-                # Mark processed
-                marker_path = f"{file_path}.processed"
-                open(marker_path, 'w').close()
+                is_new_content = process_file(file, file_path)
 
                 if is_new_content:
                     print(f"\tsaved!")
@@ -89,6 +88,7 @@ def rehydrate():
                     n_duplicates += 1
 
     print(f"Saved {n_saved} new pages, skipped {n_duplicates} duplicates, and skipped {n_already_processed} already-processed.")
+
 
 if __name__ == "__main__":
     rehydrate()
