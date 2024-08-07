@@ -199,8 +199,9 @@ def save_if_new(db: DB, url: str, title: str, text: str, user_id_str: str, url_i
         return False
 
     # generate a more useful title if necessary
-    if len(title) < 15:
-        title = summarize(text)
+    # FIXME
+    # if len(title) < 15:
+    #     title = summarize(text)
 
     # save the article in the database
     _save_article(db, text, fp, url, title, user_id, url_id)
