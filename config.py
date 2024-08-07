@@ -1,4 +1,5 @@
 import os
+import requests
 from pathlib import Path
 
 from cassandra.auth import PlainTextAuthProvider
@@ -21,18 +22,40 @@ for secret_file in _secrets_dir.iterdir():
         os.environ[env_var_name] = secret_value
 
 
-# Configure DB for astra or localhost
-astra_client_id = os.environ.get('ASTRA_CLIENT_ID')
-if astra_client_id:
-    print('Connecting to Astra')
-    cwd = os.path.dirname(os.path.realpath(__file__))
-    cloud_config = {
-      'secure_connect_bundle': os.path.join('secrets', 'secure-connect-total-recall.zip')
+def _get_astra_bundle_url(dbid, token):
+    # set up the request
+    url = f"https://api.astra.datastax.com/v2/databases/{dbid}/secureBundleURL"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
     }
-    astra_client_secret = os.environ.get('ASTRA_CLIENT_SECRET')
-    if not astra_client_secret:
-        raise Exception('ASTRA_CLIENT_SECRET environment variable not set')
-    auth_provider = PlainTextAuthProvider(astra_client_id, astra_client_secret)
+
+    response = requests.post(url, headers=headers, data="").json()
+    # happy path
+    if 'downloadURL' in response:
+        return response['downloadURL']
+    # handle errors
+    if 'errors' in response:
+        raise Exception(response['errors'][0]['message'])
+    raise Exception('Unknown error in ' + response)
+
+
+# Configure DB for astra or localhost
+astra_token = os.environ.get('ASTRA_TOKEN')
+astra_db_id = os.environ.get('ASTRA_DB_ID')
+if astra_token:
+    print('Connecting to Astra')
+    bundle_path = os.path.join('secrets', 'secure-connect-%s.zip' % astra_db_id)
+    if not os.path.exists(bundle_path):
+        print('Downloading SCB')
+        url = _get_astra_bundle_url(astra_db_id, astra_token)
+        r = requests.get(url)
+        with open(bundle_path, 'wb') as f:
+            f.write(r.content)
+    cloud_config = {
+      'secure_connect_bundle': bundle_path
+    }
+    auth_provider = PlainTextAuthProvider('token', astra_token)
     cluster = Cluster(cloud=cloud_config, auth_provider=auth_provider)
     db = DB(cluster)
     tr_data_dir = '/home/ubuntu/trserver/data'
