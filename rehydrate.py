@@ -42,28 +42,29 @@ def uuid_from_timestamp(nanoseconds: int) -> UUID:
     return UUID(fields=(time_low, time_mid, time_hi_version,
                         clock_seq_hi_variant, clock_seq_low, node), version=1)
 
+def process_file(file_path: str) -> Dict[str, Any]:
+    try:
+        user_id = os.path.basename(os.path.dirname(file_path))
+        file = os.path.basename(file_path)
 
-def process_file(file_path: str) -> bool:
-    user_id = os.path.basename(os.path.dirname(file_path))
-    file = os.path.basename(file_path)
-
-    # Read and parse the gzipped JSON file
-    with gzip.open(file_path, 'rt') as f:
-        data: Dict[str, Any] = json.load(f)
-    # Extract necessary information
-    url = data['url']
-    title = data['title']
-    text_content = data['text_content']
-    # Extract timestamp from filename and create UUID
-    timestamp_ns = int(file.split('.')[0])
-    saved_at_uuid = uuid_from_timestamp(timestamp_ns)
-    # save to db
-    is_new_content = save_if_new(db, url, title, text_content, str(user_id), saved_at_uuid)
-    # Mark processed
-    marker_path = f"{file_path}.processed"
-    open(marker_path, 'w').close()
-    return is_new_content
-
+        # Read and parse the gzipped JSON file
+        with gzip.open(file_path, 'rt') as f:
+            data: Dict[str, Any] = json.load(f)
+        # Extract necessary information
+        url = data['url']
+        title = data['title']
+        text_content = data['text_content']
+        # Extract timestamp from filename and create UUID
+        timestamp_ns = int(file.split('.')[0])
+        saved_at_uuid = uuid_from_timestamp(timestamp_ns)
+        # save to db
+        is_new_content = save_if_new(db, url, title, text_content, str(user_id), saved_at_uuid)
+        # Mark processed
+        marker_path = f"{file_path}.processed"
+        open(marker_path, 'w').close()
+        return {"success": True, "is_new_content": is_new_content, "file_path": file_path}
+    except Exception as e:
+        return {"success": False, "error": str(e), "file_path": file_path}
 
 def rehydrate():
     # load all filenames
@@ -82,17 +83,23 @@ def rehydrate():
 
     # Process files using multithreading
     n_saved = 0
+    n_errors = 0
     with ThreadPoolExecutor() as executor:
         future_to_file = {executor.submit(process_file, file): file for file in unprocessed_files}
         for future in tqdm(as_completed(future_to_file), total=len(unprocessed_files), desc="Processing files"):
-            if future.result():
-                n_saved += 1
+            result = future.result()
+            if result["success"]:
+                if result["is_new_content"]:
+                    n_saved += 1
+            else:
+                n_errors += 1
+                print(f"Error processing file {result['file_path']}: {result['error']}")
 
     n_already_processed = len(all_files) - len(unprocessed_files)
-    n_duplicates = len(unprocessed_files) - n_saved
+    n_duplicates = len(unprocessed_files) - n_saved - n_errors
 
     print(f"Saved {n_saved} new pages, skipped {n_duplicates} duplicates, and skipped {n_already_processed} already-processed.")
-
+    print(f"Encountered {n_errors} errors during processing.")
 
 if __name__ == "__main__":
     rehydrate()
