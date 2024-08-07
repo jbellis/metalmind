@@ -24,10 +24,9 @@ def search(session, user_id: str | None = None, saved_before: str | None = None)
 
     urls, oldest_saved_at = logic.recent_urls(db, user_id, saved_before)
 
-    search_form = Form(
-        Group(Input(type="text", name="search_text", placeholder="Enter search text"),
-              Input(type="hidden", name="user_id_str", value=user_id),
-              Button("Search", type="submit")),
+    search_form = Search(
+        Input(type="text", name="search_text", placeholder="Enter search text"),
+        Button("Search", type="submit"),
         action="/results", method="post"
     )
 
@@ -49,13 +48,13 @@ def search(session, user_id: str | None = None, saved_before: str | None = None)
     reset_btn = A("Reset to newest", href=f"/search", role="button", cls="outline") if saved_before else None
 
     return Titled("Search",
-      Main(
-          search_form,
-          H2("Recent URLs"),
-          *url_cards,
-          Div(older_urls_btn, reset_btn, cls="grid")
-      )
-  )
+        Main(
+            search_form,
+            H2("Recent URLs"),
+            *url_cards,
+            Div(older_urls_btn, reset_btn, cls="grid")
+        )
+    )
 
 
 @app.post("/results")
