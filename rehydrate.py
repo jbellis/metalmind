@@ -72,14 +72,15 @@ def rehydrate():
                 assert user_id == user_id_str, f"User ID mismatch in {file_path}"
 
                 # save to db
-                if not save_if_new(db, url, title, text_content, user_id_str, saved_at_uuid):
-                    print(f"Skipping duplicate file contents in {file_path}")
-                    continue
-                
+                is_new_content = save_if_new(db, url, title, text_content, user_id_str, saved_at_uuid)
                 # Mark processed
                 marker_path = f"{file_path}.processed"
                 open(marker_path, 'w').close()
-                print(f"Reloaded: {file_path}")
+
+                if is_new_content:
+                    print(f"Reloaded: {file_path}")
+                else:
+                    print(f"Skipping duplicate file contents in {file_path}")
 
 
 if __name__ == "__main__":
