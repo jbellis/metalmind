@@ -21,20 +21,34 @@ def mh_permutations(num_perm: int) -> np.ndarray:
 
 
 def mh_signature(
-    content: str,
-    *,
-    num_perm: int,
-    ngram_size: int,
-    band_size: int,
-    permutations: np.ndarray,
-) -> List[bytes]:
+        content: str,
+        *,
+        num_perm: int,
+        ngram_size: int,
+        signature_size: int,
+        permutations: np.ndarray,
+) -> np.array:
+    # Generate the raw minhash signature
     a, b = permutations
-    masks: np.ndarray = np.full(shape=num_perm, dtype=np.uint64, fill_value=_MAX_HASH)
-    tokens: Set[str] = {" ".join(t) for t in ngrams(_NON_ALPHA.split(content), ngram_size)}
-    hashvalues: np.ndarray = np.array([xxhash.xxh64(token.encode("utf-8")).intdigest() for token in tokens], dtype=np.uint64)
+    masks = np.full(shape=num_perm, dtype=np.uint64, fill_value=_MAX_HASH)
+    tokens = {" ".join(t) for t in ngrams(_NON_ALPHA.split(content), ngram_size)}
+    hashvalues = np.array([xxhash.xxh64(token.encode("utf-8")).intdigest() for token in tokens],
+                          dtype=np.uint64)
     permuted_hashvalues = np.bitwise_and(
         ((hashvalues * np.tile(a, (len(hashvalues), 1)).T).T + b) % _MERSENNE_PRIME, _MAX_HASH
     )
     hashvalues = np.vstack([permuted_hashvalues, masks]).min(axis=0)
-    num_bands = num_perm // band_size
-    return [bytes(hashvalues[i*band_size:(i+1)*band_size].byteswap().data) for i in range(num_bands)]
+
+    # Create a float32 array of signature_size and set values to 1.0 based on hashvalues
+    signature = np.zeros(signature_size, dtype=np.float32)
+
+    # Convert hashvalues to int64 before using as indices
+    indices = (hashvalues % signature_size).astype(np.int64)
+    np.put(signature, indices, 1.0)
+
+    # Normalize the signature
+    norm = np.linalg.norm(signature)
+    if norm > 0:
+        signature /= norm
+
+    return signature
