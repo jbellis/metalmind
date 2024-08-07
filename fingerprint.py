@@ -23,14 +23,15 @@ def mh_permutations(num_perm: int) -> np.ndarray:
 def mh_signature(
         content: str,
         *,
-        num_perm: int,
-        ngram_size: int,
-        signature_size: int,
-        permutations: np.ndarray,
-) -> np.ndarray:
+        ngram_size: int,          # number of words per ngram
+        n_minhashes: int,         # number of minhashes per document
+        signature_size: int,      # number of f32 elements in signature
+        band_size: int,           # number of minhashes per band
+        permutations: np.ndarray, # seed for minhash permutations
+) -> np.array:
     # Generate the raw minhash signature
     a, b = permutations
-    masks = np.full(shape=num_perm, dtype=np.uint64, fill_value=_MAX_HASH)
+    masks = np.full(shape=n_minhashes, dtype=np.uint64, fill_value=_MAX_HASH)
     tokens = {" ".join(t) for t in ngrams(_NON_ALPHA.split(content), ngram_size)}
     hashvalues = np.array([xxhash.xxh64(token.encode("utf-8")).intdigest() for token in tokens],
                           dtype=np.uint64)
@@ -39,13 +40,16 @@ def mh_signature(
     )
     hashvalues = np.vstack([permuted_hashvalues, masks]).min(axis=0)
 
-    # Create the signature with positional information
+    # Generate the LSH bands and quantize down to the space available
+    n_bands = n_minhashes // band_size
+    bits_per_band = signature_size // n_bands
+    bands = [xxhash.xxh64(hashvalues[i*band_size:(i+1)*band_size].data).intdigest() % bits_per_band
+             for i in range(n_bands)]
+    # Create a float32 array of signature_size and set values to 1.0 based on the bands
     signature = np.zeros(signature_size, dtype=np.float32)
-    position_factors = np.ones(num_perm, dtype=np.float32)
-
-    # Use advanced indexing to update signature values
-    indices = (hashvalues % signature_size).astype(np.int64)
-    np.add.at(signature, indices, position_factors)
+    indices = np.array([i * bits_per_band + v for i, v in enumerate(bands)])
+    indices = indices.astype(np.int64)
+    np.put(signature, indices, 1.0)
 
     # Normalize the signature
     norm = np.linalg.norm(signature)
