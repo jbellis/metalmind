@@ -1,9 +1,10 @@
+import multiprocessing
 import os
 import gzip
 import json
 import random
 from typing import Dict, Any
-from uuid import UUID, uuid1, getnode
+from uuid import UUID, getnode
 
 from config import db, tr_data_dir
 from logic import save_if_new
@@ -62,30 +63,17 @@ def process_file(file, file_path):
 
 
 def rehydrate():
-    n_already_processed = 0
-    n_saved = 0
-    n_duplicates = 0
-    # Walk through the tr_data_dir
-    for root, dirs, files in os.walk(tr_data_dir):
-        for file in files:
-            # 1722853248890137710.gz
-            # the first part is time.ns when it was saved
-            if file.endswith('.gz'):
-                file_path = os.path.join(root, file)
-                
-                # Skip if already processed
-                if is_processed(file_path):
-                    n_already_processed += 1
-                    continue
-
-                is_new_content = process_file(file, file_path)
-
-                if is_new_content:
-                    print(f"\tsaved!")
-                    n_saved += 1
-                else:
-                    print(f"\tduplicate content; skipped")
-                    n_duplicates += 1
+    # load all filenames
+    all_files = []
+    for root, _, files in os.walk(tr_data_dir):
+        all_files.extend([os.path.join(root, fname) for fname in files if fname.endswith('.gz')])
+    # filter using multithreading, this touches disk so we want to accelerate it
+    with multiprocessing.Pool() as pool:
+        processed_files = pool.map(is_processed, all_files)
+        files = [file for file, processed in zip(all_files, processed_files) if not processed]
+        n_saved = sum(1 for r in pool.map(process_file, files) if r)
+    n_already_processed = len(all_files) - len(files)
+    n_duplicates = len(files) - n_saved
 
     print(f"Saved {n_saved} new pages, skipped {n_duplicates} duplicates, and skipped {n_already_processed} already-processed.")
 
