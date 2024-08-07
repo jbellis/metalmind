@@ -41,11 +41,11 @@ def mh_signature(
 
     # Create the signature with positional information
     signature = np.zeros(signature_size, dtype=np.float32)
-    position_factors = 1.0 / (np.arange(num_perm) + 1)
+    position_factors = np.ones(num_perm, dtype=np.float32)
 
     # Use advanced indexing to update signature values
     indices = (hashvalues % signature_size).astype(np.int64)
-    np.add.at(signature, indices, hashvalues * position_factors)
+    np.add.at(signature, indices, position_factors)
 
     # Normalize the signature
     norm = np.linalg.norm(signature)
