@@ -2,7 +2,7 @@ import threading
 import os
 import gzip
 import json
-import tqdm
+from tqdm import tqdm
 import random
 from typing import Dict, Any
 from uuid import UUID, getnode
