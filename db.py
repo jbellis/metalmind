@@ -19,8 +19,7 @@ class DB:
     def __init__(self, cluster: Cluster) -> None:
         self.keyspace = "total_recall"
         self.table_chunks = "saved_chunks"
-        self.table_urls = "saved_urls"
-        self.table_paths = "saved_paths"
+        self.table_pages = "saved_pages"
         # TODO add chunks_embedding_column as a constant so it can change easier
         self.cluster = cluster
         self.session = self.cluster.connect()
@@ -34,35 +33,18 @@ class DB:
                 """
             )
 
-        # URLs table
+        # Pages table
         self.session.execute(
             f"""
-            CREATE TABLE IF NOT EXISTS {self.keyspace}.{self.table_urls} (
+            CREATE TABLE IF NOT EXISTS {self.keyspace}.{self.table_pages} (
             user_id uuid,
             url_id timeuuid,
             full_url text,
             title text,
-            PRIMARY KEY (user_id, url_id));
-            """
-        )
-        url_index_name = f"{self.table_urls}_full_url_idx"
-        self.session.execute(
-            f"""
-            CREATE CUSTOM INDEX IF NOT EXISTS {url_index_name} ON {self.keyspace}.{self.table_urls} (full_url)
-            USING 'org.apache.cassandra.index.sai.StorageAttachedIndex'
-            """
-        )
-
-        # Paths table
-        self.session.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {self.keyspace}.{self.table_paths} (
-            user_id uuid,
-            path text,
-            url_id timeuuid,
             text_content text,
-            formatted_content text,
-            PRIMARY KEY ((user_id, path), url_id))
+            html_content text,
+            fingerprint vector<float, 4096>,
+            PRIMARY KEY (user_id, url_id));
             """
         )
 
@@ -89,18 +71,6 @@ class DB:
             """
         )
 
-    def last_version(self, user_id: uuid4, path: str) -> Optional[str]:
-        st = self.session.prepare(
-            f"""
-            SELECT text_content
-            FROM {self.keyspace}.{self.table_paths}
-            WHERE user_id = ? AND path = ?
-            ORDER BY url_id DESC LIMIT 1
-            """
-        )
-        row = self.session.execute(st, (user_id, path)).one()
-        return row and row.text_content
-
     def upsert_chunks(self,
                       user_id: uuid4,
                       path: str,
@@ -109,24 +79,16 @@ class DB:
                       text_content: str,
                       chunks: List[Tuple[str, List[float]]],
                       url_uuid: Optional[uuid1]) -> None:
-        st_urls = self.session.prepare(
+        st_pages = self.session.prepare(
             f"""
-            INSERT INTO {self.keyspace}.{self.table_urls}
-            (user_id, url_id, full_url, title)
-            VALUES (?, ?, ?, ?)
-            """
-        )
-        st_paths = self.session.prepare(
-            f"""
-            INSERT INTO {self.keyspace}.{self.table_paths}
-            (user_id, path, url_id, text_content)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO {self.keyspace}.{self.table_pages}
+            (user_id, url_id, full_url, title, text_content)
+            VALUES (?, ?, ?, ?, ?)
             """
         )
         if not url_uuid:
             url_uuid = uuid1()
-        self.session.execute(st_urls, (user_id, url_uuid, full_url, title))
-        self.session.execute(st_paths, (user_id, path, url_uuid, text_content))
+        self.session.execute(st_pages, (user_id, url_uuid, full_url, title, text_content))
 
         st_chunks = self.session.prepare(
             f"""
@@ -154,7 +116,7 @@ class DB:
         if saved_before:
             cql = f"""
                   SELECT full_url, title, url_id 
-                  FROM {self.keyspace}.{self.table_urls} 
+                  FROM {self.keyspace}.{self.table_pages} 
                   WHERE user_id = ? AND url_id < minTimeuuid(?)
                   ORDER BY url_id DESC
                   LIMIT ?
@@ -162,7 +124,7 @@ class DB:
         else:
             cql = f"""
                   SELECT full_url, title, url_id 
-                  FROM {self.keyspace}.{self.table_urls} 
+                  FROM {self.keyspace}.{self.table_pages} 
                   WHERE user_id = ? 
                   ORDER BY url_id DESC
                   LIMIT ?
@@ -201,33 +163,29 @@ class DB:
     def load_snapshot(self, user_id: uuid4, url_id: uuid1) -> tuple[uuid1, str, str, str, str]:
         query = self.session.prepare(
             f"""
-            SELECT url_id, full_url, title FROM {self.keyspace}.{self.table_urls} 
+            SELECT url_id, full_url, title, text_content FROM {self.keyspace}.{self.table_pages} 
             WHERE user_id = ? AND url_id = ?
             """
         )
-        url_id, url, title = self.session.execute(query, (user_id, url_id)).one()
+        url_id, url, title, text_content = self.session.execute(query, (user_id, url_id)).one()
         parsed = urlparse(url)
         path = parsed.hostname + parsed.path
 
-        query = self.session.prepare(
-            f"""
-            SELECT text_content, formatted_content
-            FROM {self.keyspace}.{self.table_paths} 
-            WHERE user_id = ? AND url_id = ? AND path = ?
-            """
-        )
-        row = self.session.execute(query, (user_id, url_id, path)).one()
-        return url_id, path, title, row.text_content, row.formatted_content
-
-    def save_formatting(self, user_id: uuid4, url_id: uuid1, path: str, formatted_content: str) -> None:
-        request = self.session.prepare(
-            f"""
-            UPDATE {self.keyspace}.{self.table_paths}
-            SET formatted_content = ?
-            WHERE user_id = ? AND url_id = ? AND path = ?
-            """
-        )
-        self.session.execute(request, (formatted_content, user_id, url_id, path))
+        return url_id, path, title, text_content, None
 
     def _get_user_ids(self):
         return  self.session.execute(f"SELECT user_id FROM {self.keyspace}.{self.table_chunks}").all()
+
+    def similar_page_exists(self, user_id, fingerprint):
+        query = self.session.prepare(
+            f"""
+            SELECT similarity_dot_product(fingerprint, ?) 
+            FROM {self.keyspace}.{self.table_pages} 
+            WHERE user_id = ? 
+            ORDER BY fingerprint ANN OF ? LIMIT 1
+            """
+        )
+        result = self.session.execute(query, (fingerprint, user_id, fingerprint)).one_or_none()
+        if not result:
+            return False
+        return result[0] >= 0.99

@@ -19,6 +19,7 @@ import tiktoken
 from config import tr_data_dir
 from db import DB
 from util import humanize_datetime
+import fingerprint
 
 
 nltk.download('punkt') # needed locally; in heroku this is done in nltk.txt
@@ -193,11 +194,9 @@ def save_if_new(db: DB, url: str, title: str, text: str, user_id_str: str, url_i
         json.dump(request_json, f)
 
     # check if the article is sufficiently different from the last version of the same url
+    fp = fingerprint.encode(text)
     user_id = UUID(user_id_str)
-    parsed = urlparse(url)
-    path = parsed.hostname + parsed.path
-    last_version = db.last_version(user_id, path)
-    if not _is_different(text, last_version):
+    if db.similar_page_exists(user_id, fp):
         return False
 
     # generate a more useful title if necessary

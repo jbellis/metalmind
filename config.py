@@ -7,10 +7,8 @@ from cassandra.cluster import Cluster
 
 from db import DB
 
-# ignore these
 
-
-# Load secret keys
+# Load secret keys into env vars
 _secrets_dir = Path('secrets')
 if not _secrets_dir.is_dir():
     raise(Exception('Secrets directory not found'))
@@ -41,22 +39,22 @@ def _get_astra_bundle_url(dbid, token):
 
 
 # Configure DB for astra or localhost
-astra_token = os.environ.get('ASTRA_TOKEN')
-astra_db_id = os.environ.get('ASTRA_DB_ID')
-if astra_token:
+_astra_token = os.environ.get('ASTRA_TOKEN')
+_astra_db_id = os.environ.get('ASTRA_DB_ID')
+if _astra_token:
     print('Connecting to Astra')
-    bundle_path = os.path.join('secrets', 'secure-connect-%s.zip' % astra_db_id)
+    bundle_path = os.path.join('secrets', 'secure-connect-%s.zip' % _astra_db_id)
     if not os.path.exists(bundle_path):
         print('Downloading SCB')
-        url = _get_astra_bundle_url(astra_db_id, astra_token)
+        url = _get_astra_bundle_url(_astra_db_id, _astra_token)
         r = requests.get(url)
         with open(bundle_path, 'wb') as f:
             f.write(r.content)
     cloud_config = {
       'secure_connect_bundle': bundle_path
     }
-    auth_provider = PlainTextAuthProvider('token', astra_token)
-    cluster = Cluster(cloud=cloud_config, auth_provider=auth_provider)
+    _auth_provider = PlainTextAuthProvider('token', _astra_token)
+    cluster = Cluster(cloud=cloud_config, auth_provider=_auth_provider)
     db = DB(cluster)
     tr_data_dir = '/home/ubuntu/trserver/data'
 else:
