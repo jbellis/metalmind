@@ -60,4 +60,7 @@ if _astra_token:
 else:
     print('Connecting to local Cassandra')
     db = DB(Cluster())
+
+# FIXME this literally only works on my machine
+if os.path.exists('/home/jonathan'):
     tr_data_dir = '/home/jonathan/Projects/trserver/data'

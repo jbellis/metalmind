@@ -20,6 +20,8 @@ class DB:
         self.keyspace = "total_recall"
         self.table_chunks = "saved_chunks"
         self.table_pages = "saved_pages"
+        fingerprint_index_name = f"{self.table_pages}_fingerprint_idx" # update this when index column name changes
+        embedding_index_name = f"{self.table_chunks}_embedding_idx" # update this when index column name changes
         # TODO add chunks_embedding_column as a constant so it can change easier
         self.cluster = cluster
         self.session = self.cluster.connect()
@@ -47,6 +49,14 @@ class DB:
             PRIMARY KEY (user_id, url_id));
             """
         )
+        # fingerprint index
+        self.session.execute(
+            f"""
+            CREATE CUSTOM INDEX IF NOT EXISTS {fingerprint_index_name} ON {self.keyspace}.{self.table_pages}(fingerprint)
+            USING 'org.apache.cassandra.index.sai.StorageAttachedIndex'
+            WITH OPTIONS = {{ 'source_model': 'ada002' }}
+            """
+        )
 
         # Chunks table
         self.session.execute(
@@ -62,10 +72,9 @@ class DB:
             """
         )
         # Embedding index
-        embedding_index_name = f"{self.table_chunks}_embedding_idx" # update this when index column name changes
         self.session.execute(
             f"""
-            CREATE CUSTOM INDEX IF NOT EXISTS {embedding_index_name} ON {self.keyspace}.{self.table_chunks} (embedding_g4)
+            CREATE CUSTOM INDEX IF NOT EXISTS {embedding_index_name} ON {self.keyspace}.{self.table_chunks}(embedding_g4)
             USING 'org.apache.cassandra.index.sai.StorageAttachedIndex'
             WITH OPTIONS = {{ 'source_model': 'gecko' }}
             """
@@ -73,22 +82,22 @@ class DB:
 
     def upsert_chunks(self,
                       user_id: uuid4,
-                      path: str,
                       full_url: str,
                       title: str,
                       text_content: str,
+                      fingerprint: List[float],
                       chunks: List[Tuple[str, List[float]]],
                       url_uuid: Optional[uuid1]) -> None:
         st_pages = self.session.prepare(
             f"""
             INSERT INTO {self.keyspace}.{self.table_pages}
-            (user_id, url_id, full_url, title, text_content)
-            VALUES (?, ?, ?, ?, ?)
+            (user_id, url_id, full_url, title, text_content, fingerprint)
+            VALUES (?, ?, ?, ?, ?, ?)
             """
         )
         if not url_uuid:
             url_uuid = uuid1()
-        self.session.execute(st_pages, (user_id, url_uuid, full_url, title, text_content))
+        self.session.execute(st_pages, (user_id, url_uuid, full_url, title, text_content, fingerprint))
 
         st_chunks = self.session.prepare(
             f"""
@@ -185,7 +194,7 @@ class DB:
             ORDER BY fingerprint ANN OF ? LIMIT 1
             """
         )
-        result = self.session.execute(query, (fingerprint, user_id, fingerprint)).one_or_none()
-        if not result:
+        rs = self.session.execute(query, (fingerprint, user_id, fingerprint))
+        if not rs.current_rows:
             return False
-        return result[0] >= 0.99
+        return rs.one()[0] >= 0.99

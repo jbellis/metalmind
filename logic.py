@@ -10,7 +10,6 @@ from types import SimpleNamespace as SN
 
 import nltk
 import numpy as np
-import openai
 import google.generativeai as gemini
 import re
 from sklearn.feature_extraction.text import CountVectorizer
@@ -24,9 +23,6 @@ import fingerprint
 
 nltk.download('punkt') # needed locally; in heroku this is done in nltk.txt
 
-openai.api_key = os.environ.get('OPENAI_KEY')
-if not openai.api_key:
-    raise Exception('OPENAI_KEY environment variable not set')
 gemini_key=os.environ["GEMINI_KEY"]
 if not gemini_key:
     raise Exception('GEMINI_KEY environment variable not set')
@@ -55,7 +51,10 @@ _summarize_prompt = ("You are a helpful assistant who will give the subject of t
                      "`The successes and shortcomings of persistent collections in server-side Java development`, "
                      "`A personal account of the benefits of intermittent fasting`.")
 def summarize(text: str) -> str:
+    # FIXME
+    return text[:100]
     truncated = truncate_to(text, 16000)
+    # openai broke this code
     response = openai.ChatCompletion.create(
         model="gpt-4o-mini",
         messages=[
@@ -113,7 +112,7 @@ def _group_sentences_with_overlap(sentences, max_tokens):
         grouped_sentences.append(current_group)
 
     return grouped_sentences
-def _save_article(db: DB, path: str, text: str, url: str, title: str, user_id: uuid4, url_id: Optional[uuid1] = None) -> None:
+def _save_article(db: DB, text: str, fingerprint: np.array, url: str, title: str, user_id: uuid4, url_id: Optional[uuid1] = None) -> None:
     text = re.sub(r'\s+', ' ', text)
     title = re.sub(r'\s+', ' ', title)
     sentences = [sentence.strip() for sentence in nltk.sent_tokenize(text)]
@@ -123,7 +122,7 @@ def _save_article(db: DB, path: str, text: str, url: str, title: str, user_id: u
         group_texts.insert(0, title)
     # print(group_texts)
     vectors = _encode(group_texts)
-    db.upsert_chunks(user_id, path, url, title, text, zip(group_texts, vectors), url_id)
+    db.upsert_chunks(user_id, url, title, text, fingerprint.tolist(), zip(group_texts, vectors), url_id)
 
 
 def _is_different(text, last_version):
@@ -204,7 +203,7 @@ def save_if_new(db: DB, url: str, title: str, text: str, user_id_str: str, url_i
         title = summarize(text)
 
     # save the article in the database
-    _save_article(db, path, text, url, title, user_id, url_id)
+    _save_article(db, text, fp, url, title, user_id, url_id)
     return True
 
 
