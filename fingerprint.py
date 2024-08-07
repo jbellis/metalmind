@@ -27,7 +27,7 @@ def mh_signature(
         ngram_size: int,
         signature_size: int,
         permutations: np.ndarray,
-) -> np.array:
+) -> np.ndarray:
     # Generate the raw minhash signature
     a, b = permutations
     masks = np.full(shape=num_perm, dtype=np.uint64, fill_value=_MAX_HASH)
@@ -39,12 +39,13 @@ def mh_signature(
     )
     hashvalues = np.vstack([permuted_hashvalues, masks]).min(axis=0)
 
-    # Create a float32 array of signature_size and set values to 1.0 based on hashvalues
+    # Create the signature with positional information
     signature = np.zeros(signature_size, dtype=np.float32)
+    position_factors = 1.0 / (np.arange(num_perm) + 1)
 
-    # Convert hashvalues to int64 before using as indices
+    # Use advanced indexing to update signature values
     indices = (hashvalues % signature_size).astype(np.int64)
-    np.put(signature, indices, 1.0)
+    np.add.at(signature, indices, hashvalues * position_factors)
 
     # Normalize the signature
     norm = np.linalg.norm(signature)
