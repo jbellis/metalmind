@@ -1,6 +1,6 @@
 import xxhash
 import numpy as np
-from typing import Dict, Any, Set, List
+from typing import Dict, Any, Set, List, Tuple
 from nltk import ngrams
 import re
 
@@ -10,10 +10,14 @@ _MERSENNE_PRIME = np.uint64((1 << 61) - 1)
 
 
 def mh_permutations(num_perm: int) -> np.ndarray:
+    def generate_coprime(prime: int) -> int:
+        while True:
+            x = np.random.randint(1, prime, dtype=np.uint64)
+            if np.gcd(x, prime) == 1:
+                return x
+
     # Generate 'a' coefficients
-    a = np.random.randint(1, _MERSENNE_PRIME, size=num_perm, dtype=np.uint64)
-    # Ensure 'a' coefficients are coprime with MERSENNE_PRIME
-    a = np.array([ai if np.gcd(ai, _MERSENNE_PRIME) == 1 else 1 for ai in a], dtype=np.uint64)
+    a = np.array([generate_coprime(_MERSENNE_PRIME) for _ in range(num_perm)], dtype=np.uint64)
     # Generate 'b' offsets
     b = np.random.randint(0, _MERSENNE_PRIME, size=num_perm, dtype=np.uint64)
 
@@ -28,7 +32,7 @@ def mh_signature(
         signature_size: int,
         band_size: int,
         permutations: np.ndarray,
-) -> np.ndarray:
+) -> np.array:
     """
     Generate a MinHash signature for the given content.
 
@@ -71,3 +75,7 @@ def mh_signature(
         signature /= norm
 
     return signature
+
+_permutations = np.load('fingerprint_seed.npz')['arr']
+def encode(text: str) -> np.array:
+    return mh_signature(text, ngram_size=3, signature_size=4096, n_minhashes=512, band_size=8, permutations=_permutations)
