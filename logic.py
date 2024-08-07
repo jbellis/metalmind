@@ -4,6 +4,7 @@ import os
 import time
 from datetime import datetime, timedelta
 from typing import Optional, List
+from urllib.parse import urlparse
 from uuid import uuid4, uuid1, UUID
 from types import SimpleNamespace as SN
 
@@ -12,6 +13,7 @@ import numpy as np
 import google.generativeai as gemini
 import re
 from sklearn.feature_extraction.text import CountVectorizer
+import tiktoken
 
 from config import tr_data_dir
 from db import DB
@@ -25,9 +27,8 @@ gemini_key=os.environ["GEMINI_KEY"]
 if not gemini_key:
     raise Exception('GEMINI_KEY environment variable not set')
 gemini.configure(api_key=gemini_key)
-# FIXME this is a placeholder, tiktoken infinite-loops for some inputs for reasons I don't understand
-def token_length(text):
-    return len(text) / 4
+# TODO update tiktoken and change this to 4o-mini
+_tokenize = lambda st: tiktoken.encoding_for_model('gpt-4o').encode(st, disallowed_special=())
 
 
 # Chunk embedding function using Gemini
@@ -38,7 +39,9 @@ def _encode(inputs: list[str]) -> list[list[float]]:
 
 
 def truncate_to(source, max_tokens):
-    return source[:max_tokens * 4]
+    truncated_tokens = list(_tokenize(source))[:max_tokens]
+    truncated_s = tiktoken.encoding_for_model('gpt-3.5-turbo').decode(truncated_tokens)
+    return truncated_s
 
 
 _summarize_prompt = ("You are a helpful assistant who will give the subject of the provided web page content in a single sentence. "
@@ -67,6 +70,9 @@ def _group_sentences_with_overlap(sentences, max_tokens):
     current_group = []
     current_token_count = 0
     last_sentence = ""
+
+    def token_length(text):
+        return len(list(_tokenize(text)))
 
     # Group sentences in chunks of max_tokens
     for sentence in sentences:
@@ -146,7 +152,7 @@ def _group_sentences_by_tokens(sentences, max_tokens):
 
     # Group sentences in chunks of max_tokens
     for sentence in sentences:
-        token_count = token_length(sentence)
+        token_count = len(list(_tokenize(sentence)))
         if current_token_count + token_count <= max_tokens:
             current_group.append(sentence)
             current_token_count += token_count
