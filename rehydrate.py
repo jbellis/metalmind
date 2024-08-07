@@ -40,6 +40,9 @@ def uuid_from_timestamp(nanoseconds: int) -> UUID:
 
 
 def rehydrate():
+    n_already_processed = 0
+    n_saved = 0
+    n_duplicates = 0
     # Walk through the tr_data_dir
     for root, dirs, files in os.walk(tr_data_dir):
         for file in files:
@@ -50,7 +53,7 @@ def rehydrate():
                 
                 # Skip if already processed
                 if is_processed(file_path):
-                    print(f"Skipping already processed file: {file_path}")
+                    n_already_processed += 1
                     continue
 
                 user_id = os.path.basename(os.path.dirname(file_path))
@@ -80,9 +83,12 @@ def rehydrate():
 
                 if is_new_content:
                     print(f"\tsaved!")
+                    n_saved += 1
                 else:
                     print(f"\tduplicate content; skipped")
+                    n_duplicates += 1
 
+    print(f"Saved {n_saved} new pages, skipped {n_duplicates} duplicates, and skipped {n_already_processed} already-processed.")
 
 if __name__ == "__main__":
     rehydrate()
