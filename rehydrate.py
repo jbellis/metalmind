@@ -1,4 +1,3 @@
-import threading
 import os
 import gzip
 import json
@@ -6,7 +5,6 @@ from tqdm import tqdm
 import random
 from typing import Dict, Any
 from uuid import UUID, getnode
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import db, tr_data_dir
 from logic import save_if_new
@@ -19,19 +17,15 @@ def is_processed(file_path: str) -> bool:
 
 
 _last_timestamp = None
-_timestamp_lock = threading.Lock()
-
-
 def uuid_from_timestamp(nanoseconds: int) -> UUID:
     """
     Create a UUID (version 1) from a nanosecond timestamp.  Mostly copied from UUID.uuid1 source.
     """
     global _last_timestamp
-    with _timestamp_lock:
-        timestamp = nanoseconds // 100 + 0x01b21dd213814000
-        if _last_timestamp is not None and timestamp <= _last_timestamp:
-            timestamp = _last_timestamp + 1
-        _last_timestamp = timestamp
+    timestamp = nanoseconds // 100 + 0x01b21dd213814000
+    if _last_timestamp is not None and timestamp <= _last_timestamp:
+        timestamp = _last_timestamp + 1
+    _last_timestamp = timestamp
     clock_seq = random.getrandbits(14)
     time_low = timestamp & 0xffffffff
     time_mid = (timestamp >> 32) & 0xffff
@@ -72,31 +66,25 @@ def rehydrate():
     for root, _, files in os.walk(tr_data_dir):
         all_files.extend([os.path.join(root, fname) for fname in files if fname.endswith('.gz')])
 
-    # filter using multithreading
-    unprocessed_files = []
-    with ThreadPoolExecutor() as executor:
-        future_to_file = {executor.submit(is_processed, file): file for file in all_files}
-        for future in tqdm(as_completed(future_to_file), total=len(all_files), desc="Checking processed files"):
-            file = future_to_file[future]
-            if not future.result():
-                unprocessed_files.append(file)
+    # filter files
+    unprocessed_files = [file for file in tqdm(all_files, desc="Checking processed files") if not is_processed(file)]
 
-    # Process files using multithreading
+    # Process files
     n_saved = 0
     n_errors = 0
-    with ThreadPoolExecutor() as executor:
-        future_to_file = {executor.submit(process_file, file): file for file in unprocessed_files}
-        for future in tqdm(as_completed(future_to_file), total=len(unprocessed_files), desc="Processing files"):
-            result = future.result()
-            if result["success"]:
-                if result["is_new_content"]:
-                    n_saved += 1
+    n_duplicates = 0
+    for file in tqdm(unprocessed_files, desc="Processing files"):
+        result = process_file(file)
+        if result["success"]:
+            if result["is_new_content"]:
+                n_saved += 1
             else:
-                n_errors += 1
-                print(f"Error processing file {result['file_path']}: {result['error']}")
+                n_duplicates += 1
+        else:
+            n_errors += 1
+            print(f"Error processing file {result['file_path']}: {result['error']}")
 
     n_already_processed = len(all_files) - len(unprocessed_files)
-    n_duplicates = len(unprocessed_files) - n_saved - n_errors
 
     print(f"Saved {n_saved} new pages, skipped {n_duplicates} duplicates, and skipped {n_already_processed} already-processed.")
     print(f"Encountered {n_errors} errors during processing.")
