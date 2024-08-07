@@ -28,7 +28,7 @@ if not gemini_key:
     raise Exception('GEMINI_KEY environment variable not set')
 gemini.configure(api_key=gemini_key)
 # TODO update tiktoken and change this to 4o-mini
-_tokenize = lambda st: tiktoken.encoding_for_model('gpt-3.5-turbo').encode(st, disallowed_special=())
+_tokenize = lambda st: tiktoken.encoding_for_model('gpt-4o').encode(st, disallowed_special=())
 
 
 # Chunk embedding function using Gemini
