@@ -1,8 +1,12 @@
-from fasthtml.common import *
 from uuid import UUID
+
+from fasthtml.common import *
+from starlette.responses import JSONResponse
+
 import logic
 from config import db
 from util import humanize_url
+
 
 app = FastHTML(hdrs=[picolink])
 
@@ -81,10 +85,10 @@ def results(session, search_text: str):
 @app.post("/save_if_new")
 def save_if_new(url: str, title: str, text_content: str, user_id: str):
     if not all([url, title, text_content, user_id]):
-        return JSON({"error": "Missing required fields"}, status_code=400)
+        return JSONResponse({"error": "Missing required fields"}, status_code=400)
 
     result = logic.save_if_new(db, url, title, text_content, user_id)
-    return JSON({"saved": result})
+    return {"saved": result}
 
 
 @app.get("/snapshot/{url_id}")
