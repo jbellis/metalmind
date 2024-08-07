@@ -11,13 +11,16 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from config import db, tr_data_dir
 from logic import save_if_new
 
+
 def is_processed(file_path: str) -> bool:
     """Check if a marker file exists for the given file path."""
     marker_path = f"{file_path}.processed"
     return os.path.exists(marker_path)
 
+
 _last_timestamp = None
 _timestamp_lock = threading.Lock()
+
 
 def uuid_from_timestamp(nanoseconds: int) -> UUID:
     """
@@ -38,6 +41,7 @@ def uuid_from_timestamp(nanoseconds: int) -> UUID:
     node = getnode()
     return UUID(fields=(time_low, time_mid, time_hi_version,
                         clock_seq_hi_variant, clock_seq_low, node), version=1)
+
 
 def process_file(file_path: str) -> bool:
     user_id = os.path.basename(os.path.dirname(file_path))
@@ -60,6 +64,7 @@ def process_file(file_path: str) -> bool:
     open(marker_path, 'w').close()
     return is_new_content
 
+
 def rehydrate():
     # load all filenames
     all_files = []
@@ -78,15 +83,19 @@ def rehydrate():
     # Process files using multithreading
     n_saved = 0
     with ThreadPoolExecutor() as executor:
-        future_to_file = {executor.submit(process_file, file): file for file in unprocessed_files}
-        for future in tqdm(as_completed(future_to_file), total=len(unprocessed_files), desc="Processing files"):
-            if future.result():
-                n_saved += 1
+        futures = [executor.submit(process_file, file) for file in unprocessed_files]
+
+        with tqdm(total=len(unprocessed_files), desc="Processing files") as pbar:
+            for future in as_completed(futures):
+                if future.result():
+                    n_saved += 1
+                pbar.update(1)
 
     n_already_processed = len(all_files) - len(unprocessed_files)
     n_duplicates = len(unprocessed_files) - n_saved
 
     print(f"Saved {n_saved} new pages, skipped {n_duplicates} duplicates, and skipped {n_already_processed} already-processed.")
+
 
 if __name__ == "__main__":
     rehydrate()
