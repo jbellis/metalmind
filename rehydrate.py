@@ -54,7 +54,6 @@ def process_file(file_path: str) -> bool:
     timestamp_ns = int(file.split('.')[0])
     saved_at_uuid = uuid_from_timestamp(timestamp_ns)
     # save to db
-    print(f"Processing: {file_path}")
     is_new_content = save_if_new(db, url, title, text_content, str(user_id), saved_at_uuid)
     # Mark processed
     marker_path = f"{file_path}.processed"
