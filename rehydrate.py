@@ -2,6 +2,7 @@ import multiprocessing
 import os
 import gzip
 import json
+import tqdm
 import random
 from typing import Dict, Any
 from uuid import UUID, getnode
@@ -67,11 +68,19 @@ def rehydrate():
     all_files = []
     for root, _, files in os.walk(tr_data_dir):
         all_files.extend([os.path.join(root, fname) for fname in files if fname.endswith('.gz')])
+
     # filter using multithreading, this touches disk so we want to accelerate it
     with multiprocessing.Pool() as pool:
-        processed_files = pool.map(is_processed, all_files)
+        processed_files = list(tqdm(pool.imap(is_processed, all_files),
+                                    total=len(all_files),
+                                    desc="Checking processed files"))
         files = [file for file, processed in zip(all_files, processed_files) if not processed]
-        n_saved = sum(1 for r in pool.map(process_file, files) if r)
+
+        # Wrap the process_file map with tqdm
+        n_saved = sum(1 for r in tqdm(pool.imap(process_file, files),
+                                      total=len(files),
+                                      desc="Processing files"))
+
     n_already_processed = len(all_files) - len(files)
     n_duplicates = len(files) - n_saved
 
