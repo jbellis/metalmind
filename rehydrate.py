@@ -83,13 +83,10 @@ def rehydrate():
     # Process files using multithreading
     n_saved = 0
     with ThreadPoolExecutor() as executor:
-        futures = [executor.submit(process_file, file) for file in unprocessed_files]
-
-        with tqdm(total=len(unprocessed_files), desc="Processing files") as pbar:
-            for future in as_completed(futures):
-                if future.result():
-                    n_saved += 1
-                pbar.update(1)
+        future_to_file = {executor.submit(process_file, file): file for file in unprocessed_files}
+        for future in tqdm(as_completed(future_to_file), total=len(unprocessed_files), desc="Processing files"):
+            if future.result():
+                n_saved += 1
 
     n_already_processed = len(all_files) - len(unprocessed_files)
     n_duplicates = len(unprocessed_files) - n_saved
