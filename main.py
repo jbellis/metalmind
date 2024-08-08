@@ -18,7 +18,7 @@ from fasthtml.common import *
 def index():
     return Title("Total Recall"), Main(
         Img(src="/static/frontpage.png", alt="Front Page"),
-        P("MetalMind is a personal archive of all the web pages you visit."),
+        H1("Welcome to MetalMind, your personal web archive"),
         P("""
           MetalMind (formerlly Total Recall) provides a browser extension that automatically
           saves the articles you read on the web.  You can search your entire page history
