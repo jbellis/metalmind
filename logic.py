@@ -152,9 +152,8 @@ def save_if_new(db: DB, url: str, title: str, text: str, user_id_str: str, url_i
     if db.similar_page_exists(user_id, fp):
         return False
 
-    # generate a more useful title if necessary
-    if token_length(title) < 3 and token_length(text) >= 50:
-        title = summarize(text)
+    if token_length(title) < 1:
+        title = "[Untitled]"
 
     # save the article in the database
     _save_article(db, text, fp, url, title, user_id, url_id)
