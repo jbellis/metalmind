@@ -19,9 +19,9 @@ def index():
 
 
 @app.get("/search")
-def search(session, user_id: str | None = None, saved_before: str | None = None):
+def search(session, user_id: UUID | None = None, saved_before: str | None = None):
     if user_id:
-        session['user_id'] = user_id
+        session['user_id'] = str(user_id)
     else:
         try:
             user_id = session['user_id']
