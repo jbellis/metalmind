@@ -12,9 +12,24 @@ from util import humanize_url, humanize_datetime
 app = FastHTML(hdrs=[picolink])
 
 
+from fasthtml.common import *
+
 @app.get("/")
 def index():
-    return Titled("MetalMind", H2("Welcome to MetalMind"))
+    return Title("Total Recall"), Main(
+        Img(src="/static/frontpage.png", alt="Front Page"),
+        P("Never forget that one article you read, again."),
+        P("""
+          Metal Mind (formerlly Total Recall) is a browser extension that allows you to save articles 
+          you read on the web, and then search for them later using semantic 
+          search powered by """,
+          A("DataStax Astra", href="https://astra.datastax.com/")
+        ),
+        P("Get the extension for ",
+          A("Firefox", href="https://addons.mozilla.org/en-US/firefox/addon/total-recall-web-companion/?utm_source=addons.mozilla.org")
+        ),
+        cls="container"
+    )
 
 
 @app.get("/search")
