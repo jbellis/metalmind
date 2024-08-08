@@ -139,8 +139,8 @@ sites_to_ignore = {
     'google.com/search',
     'maps.google.com',
 }
-def save_if_new(db: DB, url: str, title: str, text: str, user_id_str: str, url_id: Optional[uuid1] = None) -> bool:
-    save_locally(text, title, url, user_id_str)
+def save_if_new(db: DB, url: str, title: str, text: str, user_id: UUID, url_id: Optional[uuid1] = None) -> bool:
+    save_locally(text, title, url, user_id)
 
     for site in sites_to_ignore:
         if site in url:
@@ -148,7 +148,6 @@ def save_if_new(db: DB, url: str, title: str, text: str, user_id_str: str, url_i
 
     # check if the article is sufficiently different from the last version of the same url
     fp = fingerprint.encode(text)
-    user_id = UUID(user_id_str)
     if db.similar_page_exists(user_id, fp):
         return False
 
@@ -160,7 +159,8 @@ def save_if_new(db: DB, url: str, title: str, text: str, user_id_str: str, url_i
     return True
 
 
-def save_locally(text, title, url, user_id_str):
+def save_locally(text, title, url, user_id):
+    user_id_str = str(user_id)
     # create a filename based on the current time.  if it already exists, increment it.
     t = time.time_ns()
     while True:

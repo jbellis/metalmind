@@ -2,6 +2,7 @@ from uuid import UUID
 
 from fasthtml.common import *
 from starlette.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 import logic
 from config import db
@@ -82,12 +83,16 @@ def results(session, search_text: str):
                        A("Back to Search", href=f"/search", role="button"),
                        cls="container"))
 
-@app.post("/save_if_new")
-def save_if_new(url: str, title: str, text_content: str, user_id: str):
-    if not all([url, title, text_content, user_id]):
-        return JSONResponse({"error": "Missing required fields"}, status_code=400)
 
-    result = logic.save_if_new(db, url, title, text_content, user_id)
+class SaveRequest(BaseModel):
+    url: str = Field(..., min_length=1)
+    title: str = Field(...)
+    text_content: str = Field(..., min_length=1)
+    user_id: UUID
+
+@app.post("/save_if_new")
+def save_if_new(sr: SaveRequest):
+    result = logic.save_if_new(db, sr.url, sr.title, sr.text_content, sr.user_id)
     return {"saved": result}
 
 
