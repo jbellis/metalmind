@@ -3,7 +3,6 @@ import json
 
 from fasthtml.common import *
 from starlette.responses import StreamingResponse
-from pydantic import BaseModel, Field
 
 import logic
 from config import db
@@ -85,10 +84,11 @@ def results(session, search_text: str):
                        cls="container"))
 
 
-class SaveRequest(BaseModel):
-    url: str = Field(..., min_length=1)
-    title: str = Field(...)
-    text_content: str = Field(..., min_length=1)
+@dataclass
+class SaveRequest:
+    url: str
+    title: str
+    text_content: str
     user_id: UUID
 
 @app.post("/save_if_new")
