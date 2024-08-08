@@ -136,10 +136,11 @@ def _uuid1_to_datetime(uuid1: UUID) -> datetime:
 
 
 sites_to_ignore = {
-    'totalrecall.click',   # not sure why browser-side isn't filtering this out
-    'google.com/search',   # mostly a source of false positives
-    'maps.google.com',     # nothing useful
-    'calendar.google.com', # nothing useful
+    'totalrecall.click',        # not sure why browser-side isn't filtering this out
+    'google.com/search',        # mostly a source of false positives
+    'maps.google.com',          # nothing useful
+    'calendar.google.com',      # nothing useful
+    'docs.google.com/document', # nothing useful
 }
 def save_if_new(db: DB, url: str, title: str, text: str, user_id: UUID, url_id: Optional[uuid1] = None) -> bool:
     save_locally(text, title, url, user_id)
