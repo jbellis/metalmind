@@ -4,43 +4,22 @@ import os
 import time
 from datetime import datetime, timedelta
 from typing import Optional, List
-from urllib.parse import urlparse
 from uuid import uuid4, uuid1, UUID
 from types import SimpleNamespace as SN
 
 import nltk
 import numpy as np
-import google.generativeai as gemini
 import re
 from sklearn.feature_extraction.text import CountVectorizer
-import tiktoken
 
 from config import tr_data_dir
 from db import DB
 from util import humanize_datetime
 import fingerprint
+from ai import summarize, encode, tokenize, token_length, ai_format
 
 
 nltk.download('punkt') # needed locally; in heroku this is done in nltk.txt
-
-gemini_key=os.environ["GEMINI_KEY"]
-if not gemini_key:
-    raise Exception('GEMINI_KEY environment variable not set')
-gemini.configure(api_key=gemini_key)
-_tokenize = lambda st: tiktoken.encoding_for_model('gpt-4o').encode(st, disallowed_special=())
-
-
-# Chunk embedding function using Gemini
-def _encode(inputs: list[str]) -> list[list[float]]:
-    model = "models/text-embedding-004"
-    result = gemini.embed_content(model=model, content=inputs)
-    return result['embedding']
-
-
-def truncate_to(source, max_tokens):
-    truncated_tokens = list(_tokenize(source))[:max_tokens]
-    truncated_s = tiktoken.encoding_for_model('gpt-3.5-turbo').decode(truncated_tokens)
-    return truncated_s
 
 
 def _group_sentences_with_overlap(sentences, max_tokens):
@@ -48,9 +27,6 @@ def _group_sentences_with_overlap(sentences, max_tokens):
     current_group = []
     current_token_count = 0
     last_sentence = ""
-
-    def token_length(text):
-        return len(list(_tokenize(text)))
 
     # Group sentences in chunks of max_tokens
     for sentence in sentences:
@@ -110,7 +86,7 @@ def _save_article(db: DB, text: str, fingerprint: np.array, url: str, title: str
     if title not in text:
         group_texts.insert(0, title)
     # print(group_texts)
-    vectors = _encode(group_texts)
+    vectors = encode(group_texts)
     db.upsert_chunks(user_id, url, title, text, fingerprint.tolist(), zip(group_texts, vectors), url_id)
 
 
@@ -138,7 +114,7 @@ def _group_sentences_by_tokens(sentences, max_tokens):
 
     # Group sentences in chunks of max_tokens
     for sentence in sentences:
-        token_count = len(list(_tokenize(sentence)))
+        token_count = token_length(sentence)
         if current_token_count + token_count <= max_tokens:
             current_group.append(sentence)
             current_token_count += token_count
@@ -177,9 +153,8 @@ def save_if_new(db: DB, url: str, title: str, text: str, user_id_str: str, url_i
         return False
 
     # generate a more useful title if necessary
-    # FIXME
-    # if len(title) < 15:
-    #     title = summarize(text)
+    if token_length(title) < 3 and token_length(text) >= 50:
+        title = summarize(text)
 
     # save the article in the database
     _save_article(db, text, fp, url, title, user_id, url_id)
@@ -221,7 +196,7 @@ def recent_urls(db: DB, user_id_str: str, saved_before_str: Optional[str] = None
 
 
 def search(db: DB, user_id_str: str, search_text: str) -> list:
-    vector = _encode(['query: ' + search_text])[0]
+    vector = encode(['query: ' + search_text])[0]
     results = db.search(UUID(user_id_str), vector)
     for result in results:
         dt = _uuid1_to_datetime(result['url_id'])
