@@ -178,7 +178,34 @@ def _uuid1_to_datetime(uuid1: UUID) -> datetime:
     return datetime(1582, 10, 15) + timedelta(microseconds=uuid1.time // 10)
 
 
+sites_to_ignore = {
+    'google.com/search',
+    'maps.google.com',
+}
 def save_if_new(db: DB, url: str, title: str, text: str, user_id_str: str, url_id: Optional[uuid1] = None) -> bool:
+    save_locally(text, title, url, user_id_str)
+
+    for site in sites_to_ignore:
+        if site in url:
+            return False
+
+    # check if the article is sufficiently different from the last version of the same url
+    fp = fingerprint.encode(text)
+    user_id = UUID(user_id_str)
+    if db.similar_page_exists(user_id, fp):
+        return False
+
+    # generate a more useful title if necessary
+    # FIXME
+    # if len(title) < 15:
+    #     title = summarize(text)
+
+    # save the article in the database
+    _save_article(db, text, fp, url, title, user_id, url_id)
+    return True
+
+
+def save_locally(text, title, url, user_id_str):
     # create a filename based on the current time.  if it already exists, increment it.
     t = time.time_ns()
     while True:
@@ -197,21 +224,6 @@ def save_if_new(db: DB, url: str, title: str, text: str, user_id_str: str, url_i
     # write the request json to the file
     with gzip.open(full_path, 'wt') as f:
         json.dump(request_json, f)
-
-    # check if the article is sufficiently different from the last version of the same url
-    fp = fingerprint.encode(text)
-    user_id = UUID(user_id_str)
-    if db.similar_page_exists(user_id, fp):
-        return False
-
-    # generate a more useful title if necessary
-    # FIXME
-    # if len(title) < 15:
-    #     title = summarize(text)
-
-    # save the article in the database
-    _save_article(db, text, fp, url, title, user_id, url_id)
-    return True
 
 
 def recent_urls(db: DB, user_id_str: str, saved_before_str: Optional[str] = None) -> tuple[list[dict[str, Optional[str]]], datetime]:
