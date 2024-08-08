@@ -18,11 +18,11 @@ from fasthtml.common import *
 def index():
     return Title("Total Recall"), Main(
         Img(src="/static/frontpage.png", alt="Front Page"),
-        P("Never forget that one article you read, again."),
+        P("MetalMind is a personal archive of all the web pages you visit."),
         P("""
-          Metal Mind (formerlly Total Recall) is a browser extension that allows you to save articles 
-          you read on the web, and then search for them later using semantic 
-          search powered by """,
+          MetalMind (formerlly Total Recall) provides a browser extension that automatically
+          saves the articles you read on the web.  You can search your entire page history
+          using semantic search powered by """,
           A("DataStax Astra", href="https://astra.datastax.com/")
         ),
         P("Get the extension for ",
