@@ -84,16 +84,21 @@ def results(session, search_text: str):
                        cls="container"))
 
 
-@dataclass
-class SaveRequest:
-    url: str
-    title: str
-    text_content: str
-    user_id: UUID
-
 @app.post("/save_if_new")
-def save_if_new(sr: SaveRequest):
-    result = logic.save_if_new(db, sr.url, sr.title, sr.text_content, sr.user_id)
+async def save_if_new(request: Request):
+    # Manually deserialize the JSON request body
+    data = await request.json()
+    url = data.get("url")
+    title = data.get("title")
+    text_content = data.get("text_content")
+    user_id = UUID(data.get("user_id"))
+
+    # Validate the required fields
+    if not all([url, title, text_content, user_id]):
+        raise HTTPException(status_code=400, detail="Missing required fields")
+
+    # Call the logic function with the extracted data
+    result = logic.save_if_new(db, url, title, text_content, user_id)
     return {"saved": result}
 
 
