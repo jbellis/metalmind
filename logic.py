@@ -118,9 +118,14 @@ def _group_sentences_with_overlap(sentences, max_tokens):
         grouped_sentences.append(current_group)
 
     return grouped_sentences
+def _clean_text(text: str) -> str:
+    # collapse whitespace runs
+    normalized = re.sub(r'\s+', ' ', text)
+    # remove non-utf-8 characters, gemini doesn't like them
+    return normalized.encode('utf-8', 'ignore').decode('utf-8')
 def _save_article(db: DB, text: str, fingerprint: np.array, url: str, title: str, user_id: uuid4, url_id: Optional[uuid1] = None) -> None:
-    text = re.sub(r'\s+', ' ', text)
-    title = re.sub(r'\s+', ' ', title)
+    text = _clean_text(text)
+    title = _clean_text(title)
     sentences = [sentence.strip() for sentence in nltk.sent_tokenize(text)]
     sentence_groups = _group_sentences_with_overlap(sentences, 100)
     group_texts = [' '.join(group) for group in sentence_groups]
