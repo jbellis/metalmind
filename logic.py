@@ -205,7 +205,7 @@ def search(db: DB, user_id_str: str, search_text: str) -> list:
 
 
 def stream_formatted_snapshot(db: DB, user_id: UUID, url_id: UUID) -> tuple[str, str]:
-    url_id, title, text_content, _ = db.load_snapshot(user_id, url_id)
+    _, title, text_content, _ = db.load_snapshot(user_id, url_id)
 
     formatted_pieces = []
     for piece in ai_format(text_content):

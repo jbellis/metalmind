@@ -34,5 +34,5 @@ def humanize_url(url: str) -> str:
     -> cloud.oracle.com/networking
     """
     parsed = urlparse(url)
-    raw = parsed.hostname + parsed.path
+    raw = (parsed.hostname or "") + parsed.path
     return raw if len(raw) < 80 else raw[:77] + '...'
