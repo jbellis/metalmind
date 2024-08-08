@@ -204,8 +204,12 @@ def search(db: DB, user_id_str: str, search_text: str) -> list:
     return [SN(**r) for r in results]
 
 
-def load_snapshot(db: DB, user_id_str: str, url_id_str: str) -> tuple[str, str]:
-    user_id = UUID(user_id_str)
-    url_id = UUID(url_id_str)
-    _, _, title, text_content, formatted_content = db.load_snapshot(user_id, url_id)
-    return title, text_content, formatted_content
+def stream_formatted_snapshot(db: DB, user_id: UUID, url_id: UUID) -> tuple[str, str]:
+    url_id, title, text_content, _ = db.load_snapshot(user_id, url_id)
+
+    formatted_pieces = []
+    for piece in ai_format(text_content):
+        formatted_pieces.append(piece)
+        yield piece
+    formatted_content = ''.join(formatted_pieces)
+    db.save_formatting(user_id, url_id, formatted_content)

@@ -169,18 +169,27 @@ class DB:
         # Convert dictionary to list
         return [{'full_url': url, **info} for url, info in url_dict.items()]
 
-    def load_snapshot(self, user_id: uuid4, url_id: uuid1) -> tuple[uuid1, str, str, str, str]:
+    def load_snapshot(self, user_id: uuid4, url_id: uuid1) -> tuple[str, str, str, str]:
         query = self.session.prepare(
             f"""
-            SELECT url_id, full_url, title, text_content FROM {self.keyspace}.{self.table_pages} 
+            SELECT full_url, title, text_content, html_content 
+            FROM {self.keyspace}.{self.table_pages} 
             WHERE user_id = ? AND url_id = ?
             """
         )
-        url_id, url, title, text_content = self.session.execute(query, (user_id, url_id)).one()
-        parsed = urlparse(url)
-        path = parsed.hostname + parsed.path
+        url, title, text_content, html_content = self.session.execute(query, (user_id, url_id)).one()
 
-        return url_id, path, title, text_content, None
+        return url, title, text_content, html_content
+
+    def save_formatting(self, user_id: uuid4, url_id: uuid1, formatted_content: str) -> None:
+        request = self.session.prepare(
+            f"""
+            UPDATE {self.keyspace}.{self.table_pages}
+            SET formatted_content = ?
+            WHERE user_id = ? AND url_id = ?
+            """
+        )
+        self.session.execute(request, (formatted_content, user_id, url_id))
 
     def _get_user_ids(self):
         return  self.session.execute(f"SELECT user_id FROM {self.keyspace}.{self.table_chunks}").all()

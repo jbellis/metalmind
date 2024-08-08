@@ -1,7 +1,8 @@
 from uuid import UUID
+import json
 
 from fasthtml.common import *
-from starlette.responses import JSONResponse
+from starlette.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 import logic
@@ -97,17 +98,36 @@ def save_if_new(sr: SaveRequest):
 
 
 @app.get("/snapshot/{url_id}")
-def snapshot(session, url_id: str):
-    user_id = session['user_id']
-    title, text_content, formatted_content = logic.load_snapshot(db, user_id, url_id)
-    saved_at = logic._uuid1_to_datetime(UUID(url_id))
+def snapshot(session, url_id: UUID):
+    user_id = UUID(session['user_id'])
+    url, title, text_content, formatted_content = db.load_snapshot(user_id, url_id)
+    saved_at = logic._uuid1_to_datetime(url_id)
 
-    return Titled(f"Snapshot: {title}",
-      Main(
-          P(f"Saved at: {saved_at}"),
-          Article(text_content)
-      )
-  )
+    content_div = Div(
+        formatted_content if formatted_content else "",
+        id="formatted_content",
+        hx_get=f"/snapshot/stream/{user_id}/{url_id}/" if not formatted_content else None,
+        hx_trigger="load" if not formatted_content else None,
+        hx_swap="beforeend",  # This will append content instead of replacing
+        hx_sse="true"  # This tells HTMX to treat the response as Server-Sent Events
+    )
+
+    return Titled("Snapshot of " + title,
+                  Container(
+                      P(f"Reformatted snapshot of ", A(title, id="title", href=url)),
+                      P(f"Taken at {saved_at}"),
+                      content_div
+                  ))
+
+@app.get('/snapshot/stream/{user_id}/{url_id}/')
+async def snapshot_stream(user_id: UUID, url_id: UUID):
+    async def generate():
+        for chunk in logic.stream_formatted_snapshot(db, user_id, url_id):
+            yield f'data: {chunk}\n\n'
+        yield 'event: close\ndata: \n\n'
+
+    return StreamingResponse(generate(), media_type='text/event-stream')
 
 
-serve()
+if __name__ == "__main__":
+    serve()
