@@ -51,7 +51,12 @@ def summarize(text: str) -> str:
 
 _format_prompt = ("You are an assistant who reformats raw text as html. "
                   "Add paragraphing, headings, and tables where appropriate. "
-                  "Use Pico CSS classes.")
+                  "Use Pico CSS classes. "
+                  "the <html> skeleton will be provided for you, all you need to provide is the contents of <body>. "
+                  "Your output will be included directly in a web page, do not add additional html or markdown tags."
+                  "Example: "
+                  "Input: `Test` "
+                  "Output: `<H1>Test</H1>`")
 def _group_sentences_by_tokens(sentences: List[str], max_tokens: int) -> List[List[str]]:
     grouped_sentences = []
     current_group = []
@@ -74,7 +79,8 @@ def _group_sentences_by_tokens(sentences: List[str], max_tokens: int) -> List[Li
 
 def ai_format(text_content: str) -> Generator[str, None, None]:
     sentences = [sentence.strip() for sentence in nltk.sent_tokenize(text_content)]
-    sentence_groups = _group_sentences_by_tokens(sentences, 100_000)
+    # gpt4o-mini can output 16k tokens, we assume adding the html tags will double the input length
+    sentence_groups = _group_sentences_by_tokens(sentences, 8_000)
 
     for group in sentence_groups:
         group_text = ' '.join(group)
