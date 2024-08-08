@@ -46,7 +46,7 @@ def uuid_from_timestamp(nanoseconds: int) -> UUID:
 
 
 def process_file(file_path):
-    user_id = os.path.basename(os.path.dirname(file_path))
+    user_id = UUID(os.path.basename(os.path.dirname(file_path)))
     file = os.path.basename(file_path)
 
     # Read and parse the gzipped JSON file
@@ -61,7 +61,7 @@ def process_file(file_path):
     saved_at_uuid = uuid_from_timestamp(timestamp_ns)
     # save to db
     print(f"Processing: {file_path}")
-    is_new_content = save_if_new(db, url, title, text_content, str(user_id), saved_at_uuid)
+    is_new_content = save_if_new(db, url, title, text_content, user_id, saved_at_uuid)
     # Mark processed
     marker_path = f"{file_path}.processed"
     open(marker_path, 'w').close()

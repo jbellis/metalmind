@@ -181,8 +181,7 @@ def save_locally(text, title, url, user_id):
         json.dump(request_json, f)
 
 
-def recent_urls(db: DB, user_id_str: str, saved_before_str: Optional[str] = None) -> tuple[list[dict[str, Optional[str]]], datetime]:
-    user_id = UUID(user_id_str)
+def recent_urls(db: DB, user_id: UUID, saved_before_str: Optional[str] = None) -> tuple[list[dict[str, Optional[str]]], datetime]:
     saved_before = datetime.fromisoformat(saved_before_str) if saved_before_str else None
 
     limit = 10
