@@ -7,11 +7,6 @@ import logic
 from config import db
 from util import humanize_url
 
-import logging
-from starlette.requests import Request
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
 
 app = FastHTML(hdrs=[picolink])
 
@@ -88,11 +83,7 @@ def results(session, search_text: str):
                        cls="container"))
 
 @app.post("/save_if_new")
-async def save_if_new(request):
-    body = await request.body()
-    logger.debug(f"Received request body: {body.decode()}")
-    logger.debug(f"Request headers: {request.headers}")
-
+def save_if_new(url: str, title: str, text_content: str, user_id: str):
     if not all([url, title, text_content, user_id]):
         return JSONResponse({"error": "Missing required fields"}, status_code=400)
 
