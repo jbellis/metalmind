@@ -6,7 +6,7 @@ from starlette.responses import StreamingResponse
 
 import logic
 from config import db
-from util import humanize_url
+from util import humanize_url, humanize_datetime
 
 
 app = FastHTML(hdrs=[picolink])
@@ -100,34 +100,33 @@ def save_if_new(sr: SaveRequest):
 @app.get("/snapshot/{url_id}")
 def snapshot(session, url_id: UUID):
     user_id = UUID(session['user_id'])
-    url, title, _, formatted_content = db.load_snapshot(user_id, url_id)
+    url, title, text_content, formatted_content = db.load_snapshot(user_id, url_id)
     saved_at = logic._uuid1_to_datetime(url_id)
 
-    formatted_content = None # FIXME
     content_div = Div(
-        Form(Input(type="hidden", name="url_id", value=url_id), ws_send=True),
-        formatted_content if formatted_content else "",
+        NotStr(formatted_content) if formatted_content else "Please wait, loading...",
         id="formatted_content",
-        hx_ext='ws',
-        ws_connect=f"/snapshot/stream/{url_id}/" if not formatted_content else None,
+        hx_get=f"/snapshot/stream/{url_id}/" if not formatted_content else None,
         hx_trigger="load" if not formatted_content else None,
-        hx_swap="beforeend"
+        hx_swap="innerHTML"
     )
 
     return Titled("Snapshot of " + title,
                   Container(
                       P(f"Reformatted snapshot of ", A(title, id="title", href=url)),
-                      P(f"Taken at {saved_at}"),
-                      content_div,
+                      P(f"Taken {humanize_datetime(saved_at)}"),
+                      content_div
                   ))
 
-@app.ws('/snapshot/stream/{url_id}/')
-async def snapshot_stream(session, url_id: UUID, send):
-    user_id = UUID(session['user_id'])
 
-    # Stream the formatted content in chunks
-    async for chunk in logic.stream_formatted_snapshot(db, user_id, url_id):
-        await send(chunk)
+@app.get('/snapshot/stream/{url_id}/')
+async def snapshot_stream(session, url_id: UUID):
+    user_id = UUID(session['user_id'])
+    async def generate():
+        for chunk in logic.stream_formatted_snapshot(db, user_id, url_id):
+            yield chunk
+
+    return StreamingResponse(generate(), media_type='text/html')
 
 
 if __name__ == "__main__":
