@@ -33,12 +33,11 @@ def update_page_titles():
 
     # Process each row
     n_updated = 0
-    for row in tqdm(rs, desc="Updating page titles"):
-        print(f"{row.title}")
+    for row in rs:
         text = row.text_content
         if token_length(row.title) < 3 and token_length(text) >= 50:
             new_title = summarize(text)
-            print(f"\t-> {new_title}")
+            print(f"{row.title} -> {new_title}")
             # Update the title in the database
             # db.session.execute(update_query, (new_title, (row.user_id), (row.url_id)))
             n_updated += 1
