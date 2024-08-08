@@ -27,7 +27,6 @@ gemini_key=os.environ["GEMINI_KEY"]
 if not gemini_key:
     raise Exception('GEMINI_KEY environment variable not set')
 gemini.configure(api_key=gemini_key)
-# TODO update tiktoken and change this to 4o-mini
 _tokenize = lambda st: tiktoken.encoding_for_model('gpt-4o').encode(st, disallowed_special=())
 
 
@@ -42,27 +41,6 @@ def truncate_to(source, max_tokens):
     truncated_tokens = list(_tokenize(source))[:max_tokens]
     truncated_s = tiktoken.encoding_for_model('gpt-3.5-turbo').decode(truncated_tokens)
     return truncated_s
-
-
-_summarize_prompt = ("You are a helpful assistant who will give the subject of the provided web page content in a single sentence. "
-                     "Give the subject in a form appropriate for an article or book title with no extra preamble or context."
-                     "Examples of good responses: "
-                     "`The significance of German immigrants in early Texas history`, "
-                     "`The successes and shortcomings of persistent collections in server-side Java development`, "
-                     "`A personal account of the benefits of intermittent fasting`.")
-def summarize(text: str) -> str:
-    # FIXME
-    return text[:100]
-    truncated = truncate_to(text, 16000)
-    # openai broke this code
-    response = openai.ChatCompletion.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": _summarize_prompt},
-            {"role": "user", "content": truncated},
-        ]
-    )
-    return response.choices[0].message.content
 
 
 def _group_sentences_with_overlap(sentences, max_tokens):
@@ -153,9 +131,6 @@ def _is_different(text, last_version):
     return dot < 0.95
 
 
-_format_prompt = ("You are a helpful assistant who will reformat raw text as html. "
-                  "Add paragraphing and headings where appropriate. "
-                  "Use bootstrap CSS classes.")
 def _group_sentences_by_tokens(sentences, max_tokens):
     grouped_sentences = []
     current_group = []
@@ -177,6 +152,7 @@ def _group_sentences_by_tokens(sentences, max_tokens):
         grouped_sentences.append(current_group)
 
     return grouped_sentences
+
 
 def _uuid1_to_datetime(uuid1: UUID) -> datetime:
     # UUID timestamps are in 100-nanosecond units since 15th October 1582
