@@ -85,10 +85,16 @@ def _group_sentences_with_overlap(sentences, max_tokens):
             # If the part is too long even solo, split it
             if token_count > max_tokens:
                 words = part.split()
-                mid = len(words) // 2
-                parts_to_process.insert(0, ' '.join(words[mid:]))
-                part = ' '.join(words[:mid])
-                token_count = token_length(part)
+                if len(words) >= 2:
+                    mid = len(words) // 2
+                    parts_to_process.insert(0, ' '.join(words[mid:]))
+                    part = ' '.join(words[:mid])
+                    token_count = token_length(part)
+                else:
+                    # one huge "word"
+                    # we could split it by token but it's unlikely to be useful information
+                    # so we'll just skip it
+                    continue
 
             # Check if the previous group's last sentence should be added
             if last_sentence and current_token_count + token_length(last_sentence) <= max_tokens:
