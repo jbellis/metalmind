@@ -15,8 +15,8 @@ def display_saved_page(user_id: UUID, url_id: UUID):
     # Display the fetched data
     print(f"URL: {url}")
     print(f"Title: {title}")
-    print(f"Text Content: {text_content[:500]}...")  # Display first 500 characters of text content
-    print(f"HTML Content: {html_content[:500]}...")  # Display first 500 characters of HTML content
+    print(f"Text Content: {text_content}")  # Display first 500 characters of text content
+    print(f"HTML Content: {html_content}")  # Display first 500 characters of HTML content
 
 
 if __name__ == "__main__":
