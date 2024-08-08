@@ -106,10 +106,9 @@ def snapshot(session, url_id: UUID):
     content_div = Div(
         formatted_content if formatted_content else "",
         id="formatted_content",
-        hx_get=f"/snapshot/stream/{user_id}/{url_id}/" if not formatted_content else None,
+        hx_get=f"/snapshot/stream/{url_id}/" if not formatted_content else None,
         hx_trigger="load" if not formatted_content else None,
-        hx_swap="beforeend",  # This will append content instead of replacing
-        hx_sse="true"  # This tells HTMX to treat the response as Server-Sent Events
+        hx_swap="beforeend"
     )
 
     return Titled("Snapshot of " + title,
@@ -119,14 +118,15 @@ def snapshot(session, url_id: UUID):
                       content_div
                   ))
 
-@app.get('/snapshot/stream/{user_id}/{url_id}/')
-async def snapshot_stream(user_id: UUID, url_id: UUID):
+
+@app.get('/snapshot/stream/{url_id}/')
+async def snapshot_stream(session, url_id: UUID):
+    user_id = UUID(session['user_id'])
     async def generate():
         for chunk in logic.stream_formatted_snapshot(db, user_id, url_id):
             yield f'data: {chunk}\n\n'
-        yield 'event: close\ndata: \n\n'
 
-    return StreamingResponse(generate(), media_type='text/event-stream')
+    return StreamingResponse(generate(), media_type='text/html')
 
 
 if __name__ == "__main__":

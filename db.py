@@ -185,7 +185,7 @@ class DB:
         request = self.session.prepare(
             f"""
             UPDATE {self.keyspace}.{self.table_pages}
-            SET formatted_content = ?
+            SET html_content = ?
             WHERE user_id = ? AND url_id = ?
             """
         )
