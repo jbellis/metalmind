@@ -44,7 +44,7 @@ class DB:
             full_url text,
             title text,
             text_content text,
-            html_content text,
+            content_gz blob,
             fingerprint vector<float, 4096>,
             PRIMARY KEY (user_id, url_id));
             """
@@ -95,8 +95,6 @@ class DB:
             VALUES (?, ?, ?, ?, ?, ?)
             """
         )
-        if not url_uuid:
-            url_uuid = uuid1()
         self.session.execute(st_pages, (user_id, url_uuid, full_url, title, text_content, fingerprint))
 
         st_chunks = self.session.prepare(
@@ -172,24 +170,22 @@ class DB:
     def load_snapshot(self, user_id: uuid4, url_id: uuid1) -> tuple[str, str, str, str]:
         query = self.session.prepare(
             f"""
-            SELECT full_url, title, text_content, html_content 
+            SELECT full_url, title, text_content, content_gz
             FROM {self.keyspace}.{self.table_pages} 
             WHERE user_id = ? AND url_id = ?
             """
         )
-        url, title, text_content, html_content = self.session.execute(query, (user_id, url_id)).one()
+        return self.session.execute(query, (user_id, url_id)).one()
 
-        return url, title, text_content, html_content
-
-    def save_formatting(self, user_id: uuid4, url_id: uuid1, formatted_content: str) -> None:
+    def save_formatting(self, user_id: uuid4, url_id: uuid1, content_gz: str) -> None:
         request = self.session.prepare(
             f"""
             UPDATE {self.keyspace}.{self.table_pages}
-            SET html_content = ?
+            SET content_gz = ?
             WHERE user_id = ? AND url_id = ?
             """
         )
-        self.session.execute(request, (formatted_content, user_id, url_id))
+        self.session.execute(request, (content_gz, user_id, url_id))
 
     def _get_user_ids(self):
         return  self.session.execute(f"SELECT user_id FROM {self.keyspace}.{self.table_chunks}").all()
@@ -205,5 +201,7 @@ class DB:
         )
         rs = self.session.execute(query, (fingerprint, user_id, fingerprint))
         if not rs.current_rows:
+            print("No similar pages found")
             return False
+        print("Most similar page is ", rs.one()[0])
         return rs.one()[0] >= 0.99

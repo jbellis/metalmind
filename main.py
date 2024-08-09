@@ -1,5 +1,5 @@
 from uuid import UUID
-import json
+import gzip
 
 from fasthtml.common import *
 from starlette.responses import StreamingResponse
@@ -21,12 +21,14 @@ def index():
         H1("Welcome to MetalMind, your personal web archive"),
         P("""
           MetalMind (formerlly Total Recall) provides a browser extension that automatically
-          saves the articles you read on the web.  You can search your entire page history
+          saves the articles you read on the web.  You can search the full text of your entire history
           using semantic search powered by """,
-          A("DataStax Astra", href="https://astra.datastax.com/")
+          A("DataStax Astra", href="https://astra.datastax.com/"),
+          "."
         ),
         P("Get the extension for ",
-          A("Firefox", href="https://addons.mozilla.org/en-US/firefox/addon/total-recall-web-companion/?utm_source=addons.mozilla.org")
+          A("Firefox", href="https://addons.mozilla.org/en-US/firefox/addon/total-recall-web-companion/?utm_source=addons.mozilla.org"),
+          "."
         ),
         cls="container"
     )
@@ -101,6 +103,9 @@ def results(session, search_text: str):
 
 @app.post("/save_if_new")
 async def save_if_new(request: Request):
+    # check content-type
+    if request.headers.get("content-type") != "application/json":
+        raise HTTPException(status_code=415, detail="Content-Type must be application/json")
     # Manually deserialize the JSON request body
     data = await request.json()
     url = data.get("url")
@@ -113,15 +118,36 @@ async def save_if_new(request: Request):
         raise HTTPException(status_code=400, detail="Missing required fields")
 
     # Call the logic function with the extracted data
-    result = logic.save_if_new(db, url, title, text_content, user_id)
-    return {"saved": result}
+    return logic.save_if_new(db, url, title, text_content, user_id)
+
+
+@app.post("/save_html")
+async def save_html(request: Request):
+    # check content-type
+    if request.headers.get("content-type") != "application/octet-stream" or \
+            request.headers.get("content-encoding") != "gzip":
+        raise HTTPException(status_code=415, detail="Content-Type must be application/octet-stream")
+
+    # Manually deserialize the request body
+    user_id = UUID(request.headers.get('X-USER-ID'))
+    url_id = UUID(request.headers.get('X-URL-ID'))
+    content_gz = await request.body()
+
+    # Validate the required fields
+    if not all([user_id, url_id, content_gz]):
+        raise HTTPException(status_code=400, detail="Missing required fields")
+
+    # Call the logic function with the extracted data
+    return db.save_formatting(user_id, url_id, content_gz)
 
 
 @app.get("/snapshot/{url_id}")
 def snapshot(session, url_id: UUID):
     user_id = UUID(session['user_id'])
-    url, title, text_content, formatted_content = db.load_snapshot(user_id, url_id)
+    url, title, text_content, content_gz = db.load_snapshot(user_id, url_id)
     saved_at = logic._uuid1_to_datetime(url_id)
+    formatted_content = gzip.decompress(content_gz).decode('utf-8') if content_gz else None
+    print('content length is ' + str(len(formatted_content)))
 
     content_div = Div(
         NotStr(formatted_content) if formatted_content else "Please wait, loading...",

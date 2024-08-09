@@ -61,11 +61,11 @@ def process_file(file_path):
     saved_at_uuid = uuid_from_timestamp(timestamp_ns)
     # save to db
     print(f"Processing: {file_path}")
-    is_new_content = save_if_new(db, url, title, text_content, user_id, saved_at_uuid)
+    save_result = save_if_new(db, url, title, text_content, user_id, saved_at_uuid)
     # Mark processed
     marker_path = f"{file_path}.processed"
     open(marker_path, 'w').close()
-    return is_new_content
+    return save_result
 
 
 def rehydrate():
@@ -82,7 +82,7 @@ def rehydrate():
     n_errors = 0
     n_duplicates = 0
     for file_path in unprocessed_files:
-        if process_file(file_path):
+        if process_file(file_path)['result'] == 'saved':
             n_saved += 1
         else:
             n_duplicates += 1

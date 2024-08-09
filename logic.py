@@ -3,7 +3,7 @@ import json
 import os
 import time
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import Optional, List, Dict
 from uuid import uuid4, uuid1, UUID
 from types import SimpleNamespace as SN
 
@@ -77,7 +77,7 @@ def _clean_text(text: str) -> str:
     normalized = re.sub(r'\s+', ' ', text)
     # remove non-utf-8 characters, gemini doesn't like them
     return normalized.encode('utf-8', 'ignore').decode('utf-8')
-def _save_article(db: DB, text: str, fingerprint: np.array, url: str, title: str, user_id: uuid4, url_id: Optional[uuid1] = None) -> None:
+def _save_article(db: DB, text: str, fingerprint: np.array, url: str, title: str, user_id: uuid4, url_id: uuid1) -> None:
     text = _clean_text(text)
     title = _clean_text(title)
     sentences = [sentence.strip() for sentence in nltk.sent_tokenize(text)]
@@ -137,29 +137,41 @@ def _uuid1_to_datetime(uuid1: UUID) -> datetime:
 
 sites_to_ignore = {
     'totalrecall.click',        # not sure why browser-side isn't filtering this out
+
+    'localhost',                # local development
+    '127.0.0.1',
+
     'google.com/search',        # mostly a source of false positives
     'maps.google.com',          # nothing useful
     'calendar.google.com',      # nothing useful
     'docs.google.com/document', # nothing useful
 }
-def save_if_new(db: DB, url: str, title: str, text: str, user_id: UUID, url_id: Optional[uuid1] = None) -> bool:
+def save_if_new(db: DB,
+                url: str,
+                title: str,
+                text: str,
+                user_id: UUID,
+                url_id: Optional[uuid1] = None) -> dict[str, str]:
     save_locally(text, title, url, user_id)
 
     for site in sites_to_ignore:
         if site in url:
-            return False
+            return {'result': 'ignored'}
 
     # check if the article is sufficiently different from the last version of the same url
     fp = fingerprint.encode(text)
     if db.similar_page_exists(user_id, fp):
-        return False
+        return {'result': 'duplicate'}
 
     if token_length(title) < 1:
         title = "[Untitled]"
 
+    if not url_id:
+        url_id = uuid1()
+
     # save the article in the database
     _save_article(db, text, fp, url, title, user_id, url_id)
-    return True
+    return {'result': 'saved', 'url_id': str(url_id)}
 
 
 def save_locally(text, title, url, user_id):
@@ -214,4 +226,5 @@ def stream_formatted_snapshot(db: DB, user_id: UUID, url_id: UUID) -> tuple[str,
         formatted_pieces.append(piece)
         yield piece
     formatted_content = ''.join(formatted_pieces)
-    db.save_formatting(user_id, url_id, formatted_content)
+    content_gz = gzip.compress(formatted_content.encode('utf-8', 'ignore'))
+    db.save_formatting(user_id, url_id, content_gz)
