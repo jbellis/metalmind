@@ -1,7 +1,5 @@
-# add parent directory of this script to sys.path
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+import util
+util.update_sys_path()
 
 import os
 import gzip
@@ -73,6 +71,8 @@ def rehydrate():
     all_files = []
     for root, _, files in os.walk(tr_data_dir):
         all_files.extend([os.path.join(root, fname) for fname in files if fname.endswith('.gz')])
+    # sort by filename which is numeric
+    all_files.sort(key=lambda x: int(Path(x).stem))
 
     # filter files
     unprocessed_files = [file_path for file_path in tqdm(all_files, desc="Checking processed files") if not is_processed(file_path)]

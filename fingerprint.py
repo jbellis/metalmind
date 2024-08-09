@@ -78,4 +78,8 @@ def mh_signature(
 
 _permutations = np.load('fingerprint_seed.npz')['arr']
 def encode(text: str) -> np.array:
-    return mh_signature(text, ngram_size=3, signature_size=4096, n_minhashes=512, band_size=8, permutations=_permutations)
+    return mh_signature(text, ngram_size=3, signature_size=2048, n_minhashes=512, band_size=2, permutations=_permutations)
+
+
+def similarity(a, b):
+    return (1 + np.dot(a, b)) / 2
