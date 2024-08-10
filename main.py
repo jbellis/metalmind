@@ -88,7 +88,7 @@ def results(session, search_text: str):
     for result in search_results:
         chunks_list = Ul(*[Li(f"{chunk[0]}") for chunk in result.chunks],
                          cls="list-group list-group-flush")
-        card = Article(H3(A(result.title, href=f"/snapshot{result.url_id}")),
+        card = Article(H3(A(result.title, href=f"/snapshot/url_id={result.url_id}")),
                        P(f"Saved at: {result.saved_at_human}",
                          A("View original", href=result.full_url)),
                        chunks_list,
