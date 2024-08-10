@@ -150,7 +150,6 @@ def snapshot(session, url_id: UUID):
     url, title, text_content, content_gz = db.load_snapshot(user_id, url_id)
     saved_at = logic._uuid1_to_datetime(url_id)
     formatted_content = gzip.decompress(content_gz).decode('utf-8') if content_gz else None
-    print('content length is ' + str(len(formatted_content)))
 
     content_div = Div(
         NotStr(formatted_content) if formatted_content else "Please wait, loading...",
