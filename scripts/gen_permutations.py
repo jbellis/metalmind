@@ -1,5 +1,5 @@
 import scriptutil
-util.update_sys_path()
+scriptutil.update_sys_path()
 
 import argparse
 import numpy as np

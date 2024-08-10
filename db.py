@@ -201,7 +201,5 @@ class DB:
         )
         rs = self.session.execute(query, (fingerprint, user_id, fingerprint))
         if not rs.current_rows:
-            print("No similar pages found")
             return False
-        print("Most similar page is ", rs.one()[0])
-        return rs.one()[0] >= 0.99
+        return rs.one()[0] >= 0.95
