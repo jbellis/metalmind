@@ -118,7 +118,10 @@ async def save_if_new(request: Request):
         raise HTTPException(status_code=400, detail="Missing required fields")
 
     # Call the logic function with the extracted data
-    return logic.save_if_new(db, url, title, text_content, user_id)
+    # FIXME remove backwards-compatibility logic here
+    result = logic.save_if_new(db, url, title, text_content, user_id)
+    result['saved'] = result['result'] == 'saved'
+    return result
 
 
 @app.post("/save_html")
