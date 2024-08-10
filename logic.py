@@ -50,20 +50,22 @@ def _group_sentences_with_overlap(sentences, max_tokens):
                     # so we'll just skip it
                     continue
 
-            # Check if the previous group's last sentence should be added
-            if last_sentence and current_token_count + token_length(last_sentence) <= max_tokens:
-                current_group.append(last_sentence)
-                current_token_count += token_length(last_sentence)
+            # Start a new group if the current part doesn't fit
+            if current_token_count + token_count > max_tokens:
+                grouped_sentences.append(current_group)
 
-            # Add the part if it fits, otherwise start a new group
-            if current_token_count + token_count <= max_tokens:
-                current_group.append(part)
-                current_token_count += token_count
-            else:
-                if current_group:
-                    grouped_sentences.append(current_group)
+                # Start a new group with the current part
                 current_group = [part]
                 current_token_count = token_count
+
+                # Add the last_sentence to the new group if there's room after adding the first sentence
+                if last_sentence and current_token_count + token_length(last_sentence) <= max_tokens:
+                    current_group.insert(0, last_sentence)
+                    current_token_count += token_length(last_sentence)
+            else:
+                # Add the current part to the existing group
+                current_group.append(part)
+                current_token_count += token_count
 
             last_sentence = part
 
@@ -72,6 +74,8 @@ def _group_sentences_with_overlap(sentences, max_tokens):
         grouped_sentences.append(current_group)
 
     return grouped_sentences
+
+
 def _clean_text(text: str) -> str:
     # collapse whitespace runs
     normalized = re.sub(r'\s+', ' ', text)
@@ -105,29 +109,6 @@ def _is_different(text, last_version):
     dot = np.dot(normalized[0], normalized[1])
     print("dot product between this and previous version is " + str(dot))
     return dot < 0.95
-
-
-def _group_sentences_by_tokens(sentences, max_tokens):
-    grouped_sentences = []
-    current_group = []
-    current_token_count = 0
-
-    # Group sentences in chunks of max_tokens
-    for sentence in sentences:
-        token_count = token_length(sentence)
-        if current_token_count + token_count <= max_tokens:
-            current_group.append(sentence)
-            current_token_count += token_count
-        else:
-            grouped_sentences.append(current_group)
-            current_group = [sentence]
-            current_token_count = token_count
-
-    # Add the last group if it's not empty
-    if current_group:
-        grouped_sentences.append(current_group)
-
-    return grouped_sentences
 
 
 def _uuid1_to_datetime(uuid1: UUID) -> datetime:
