@@ -210,4 +210,8 @@ class DB:
         rs = self.session.execute(query, (fingerprint, user_id, fingerprint))
         if not rs.current_rows:
             return False
+        # TODO it looks like our fingerprint encoding suffers from degraded accuracy
+        # as document lengths get longer -- you end up with more collisions, inflating similarity.
+        # We should probably use ANN to find the top N most similar documents, then do a comparison
+        # of the actual minhash values.
         return rs.one()[0] >= 0.95
