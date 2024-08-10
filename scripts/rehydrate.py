@@ -8,6 +8,7 @@ from tqdm import tqdm
 import random
 from typing import Dict, Any
 from uuid import UUID, getnode
+from pathlib import Path
 
 from config import db, tr_data_dir
 from logic import save_if_new
