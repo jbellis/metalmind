@@ -45,7 +45,7 @@ class DB:
             title text,
             text_content text,
             content_gz blob,
-            fingerprint vector<float, 4096>,
+            fingerprint vector<float, 2048>,
             PRIMARY KEY (user_id, url_id));
             """
         )
