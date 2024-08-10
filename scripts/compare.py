@@ -1,6 +1,6 @@
-import util
+import scriptutil
+scriptutil.update_sys_path()
 
-util.update_sys_path()
 import os
 import sys
 import gzip
