@@ -147,25 +147,30 @@ class DB:
 
 
     def search(self, user_id: uuid4, vector: List[float]) -> List[Dict[str, Union[Tuple[str, float, UUID]]]]:
+        N_RESULTS = 10
         query = self.session.prepare(
             f"""
             SELECT full_url, title, chunk, url_id, similarity_dot_product(embedding_g4, ?) as score
             FROM {self.keyspace}.{self.table_chunks} 
             WHERE user_id = ? 
-            ORDER BY embedding_g4 ANN OF ? LIMIT 10
+            ORDER BY embedding_g4 ANN OF ? LIMIT 50
             """
         )
         result_set = self.session.execute(query, (vector, user_id, vector))
-        url_dict = defaultdict(lambda: {'chunks': [], 'title': None, 'url_id': None})
+        url_dict = defaultdict(lambda: {'chunks': [], 'title': None, 'url_id': None, 'total_score': 0})
 
         for row in result_set:
-            if len(url_dict[row.full_url]['chunks']) < 3:  # only keep the top 3 chunks for each URL
-                url_dict[row.full_url]['chunks'].append((row.chunk, row.score))
-                url_dict[row.full_url]['title'] = row.title
-                url_dict[row.full_url]['url_id'] = row.url_id
+            doc = url_dict[row.full_url]
+            doc['total_score'] += row.score
+            if len(doc['chunks']) < 5:  # only keep the top 3 chunks for each URL
+                doc['chunks'].append((row.chunk, row.score))
+                doc['title'] = row.title
+                doc['url_id'] = row.url_id
 
-        # Convert dictionary to list
-        return [{'full_url': url, **info} for url, info in url_dict.items()]
+        # Convert dictionary to list and sort by total score
+        L = [{'full_url': url, **info} for url, info in url_dict.items()]
+        return sorted(L, key=lambda x: x['total_score'], reverse=True)[:N_RESULTS]
+
 
     def load_snapshot(self, user_id: uuid4, url_id: uuid1) -> tuple[str, str, str, str]:
         query = self.session.prepare(
@@ -177,6 +182,7 @@ class DB:
         )
         return self.session.execute(query, (user_id, url_id)).one()
 
+
     def save_formatting(self, user_id: uuid4, url_id: uuid1, content_gz: str) -> None:
         request = self.session.prepare(
             f"""
@@ -187,8 +193,10 @@ class DB:
         )
         self.session.execute(request, (content_gz, user_id, url_id))
 
+
     def _get_user_ids(self):
         return  self.session.execute(f"SELECT user_id FROM {self.keyspace}.{self.table_chunks}").all()
+
 
     def similar_page_exists(self, user_id, fingerprint):
         query = self.session.prepare(
