@@ -1,8 +1,8 @@
-from uuid import UUID
 import gzip
+from uuid import UUID
 
 from fasthtml.common import *
-from starlette.responses import StreamingResponse, HTMLResponse
+from starlette.responses import StreamingResponse
 
 import logic
 from config import db
@@ -11,8 +11,6 @@ from util import humanize_url, humanize_datetime
 
 app = FastHTML(hdrs=[picolink])
 
-
-from fasthtml.common import *
 
 @app.get("/")
 def index():
