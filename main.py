@@ -2,7 +2,7 @@ from uuid import UUID
 import gzip
 
 from fasthtml.common import *
-from starlette.responses import StreamingResponse
+from starlette.responses import StreamingResponse, HTMLResponse
 
 import logic
 from config import db
@@ -149,22 +149,54 @@ def snapshot(session, url_id: UUID):
     user_id = UUID(session['user_id'])
     url, title, text_content, content_gz = db.load_snapshot(user_id, url_id)
     saved_at = logic._uuid1_to_datetime(url_id)
-    formatted_content = gzip.decompress(content_gz).decode('utf-8') if content_gz else None
 
-    content_div = Div(
-        NotStr(formatted_content) if formatted_content else "Please wait, loading...",
-        id="formatted_content",
-        hx_get=f"/snapshot/stream/{url_id}/" if not formatted_content else None,
-        hx_trigger="load" if not formatted_content else None,
-        hx_swap="innerHTML"
-    )
+    content_div = Iframe(src=f"/snapshot_iframe/{url_id}", width="100%", height="600px", style="border: 1px solid #ccc;")
 
     return Titled("Snapshot of " + title,
                   Container(
-                      P(f"Reformatted snapshot of ", A(title, id="title", href=url)),
+                      P(f"Snapshot of ", A(title, id="title", href=url)),
                       P(f"Taken {humanize_datetime(saved_at)}"),
                       content_div
                   ))
+
+@app.get("/snapshot_iframe/{url_id}")
+def snapshot_iframe(session, url_id: UUID):
+    user_id = UUID(session['user_id'])
+    url, title, text_content, content_gz = db.load_snapshot(user_id, url_id)
+    formatted_content = gzip.decompress(content_gz).decode('utf-8') if content_gz else None
+
+    if formatted_content:
+        # Wrap the content in a full HTML structure
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>{title}</title>
+            <base href="{url}">
+        </head>
+        <body>
+            {formatted_content}
+        </body>
+        </html>
+        """
+    else:
+        # this is not consistently displayed in an iframe but i guess that's okay since the
+        # "rehydrated" html is generated against pico css
+        content_div = Div(
+            "Please wait, loading...",
+            id="formatted_content",
+            hx_get=f"/snapshot/stream/{url_id}/",
+            hx_trigger="load",
+            hx_swap="innerHTML"
+        )
+        return Titled("Snapshot of " + title,
+                      Container(
+                          P(f"Snapshot of ", A(title, id="title", href=url)),
+                          P(f"Taken {humanize_datetime(saved_at)}"),
+                          content_div
+                      ))
 
 
 @app.get('/snapshot/stream/{url_id}/')
