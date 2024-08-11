@@ -189,6 +189,7 @@ def snapshot_iframe(session, url_id: UUID):
             hx_trigger="load",
             hx_swap="innerHTML"
         )
+        saved_at = logic._uuid1_to_datetime(url_id)
         return Titled("Snapshot of " + title,
                       Container(
                           P(f"Snapshot of ", A(title, id="title", href=url)),
