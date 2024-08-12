@@ -19,7 +19,9 @@ import fingerprint
 from ai import summarize, encode, tokenize, token_length, ai_format
 
 
-nltk.download('punkt') # needed locally; in heroku this is done in nltk.txt
+# weird-ass nltk doesn't do this automatically
+nltk.download('punkt')
+nltk.download('punkt_tab')
 
 
 def _group_sentences_with_overlap(sentences, max_tokens):
