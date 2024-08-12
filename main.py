@@ -52,7 +52,7 @@ def search(session, user_id: UUID | None = None, saved_before: str | None = None
 
     url_cards = [
         Article(
-            H3(A(url.title, href=f"/snapshot/{url.url_id}")),
+            H4(A(url.title, href=f"/snapshot/{url.url_id}")),
             Small(
                 humanize_url(url.full_url),
                 Br(),
@@ -84,13 +84,14 @@ def results(session, search_text: str):
 
     result_cards = []
     for result in search_results:
-        chunks_list = Ul(*[Li(f"{chunk[0]}") for chunk in result.chunks],
-                         cls="list-group list-group-flush")
-        card = Article(H3(A(result.title, href=f"/snapshot/url_id={result.url_id}")),
-                       P(f"Saved at: {result.saved_at_human}",
-                         A("View original", href=result.full_url)),
-                       chunks_list,
-                       cls="card")
+        card = Article(H4(A(result.title, href=f"/snapshot/url_id={result.url_id}")),
+                       Small(
+                           P(f"Saved at: {result.saved_at_human}",
+                             A("View original", href=result.full_url)),
+                           Ul(*[Li(f"{chunk[0]}") for chunk in result.chunks],
+                                            cls="list-group list-group-flush"),
+                           cls="card"
+                       ))
         result_cards.append(card)
 
     return Titled("Search Results",

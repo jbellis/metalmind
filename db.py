@@ -148,6 +148,7 @@ class DB:
 
     def search(self, user_id: uuid4, vector: List[float]) -> List[Dict[str, Union[Tuple[str, float, UUID]]]]:
         N_RESULTS = 10
+        N_RESULTS_PER_PAGE = 3
         query = self.session.prepare(
             f"""
             SELECT full_url, title, chunk, url_id, similarity_dot_product(embedding_g4, ?) as score
@@ -162,7 +163,7 @@ class DB:
         for row in result_set:
             doc = url_dict[row.full_url]
             doc['total_score'] += row.score
-            if len(doc['chunks']) < 5:  # only keep the top 3 chunks for each URL
+            if len(doc['chunks']) < N_RESULTS_PER_PAGE:  # only keep the top 3 chunks for each URL
                 doc['chunks'].append((row.chunk, row.score))
                 doc['title'] = row.title
                 doc['url_id'] = row.url_id
