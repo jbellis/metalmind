@@ -82,6 +82,12 @@ def results(session, search_text: str):
     user_id = session['user_id']
     search_results = logic.search(db, user_id, search_text)
 
+    search_form = Search(
+        Input(type="text", name="search_text", placeholder="Enter search text", value=search_text),
+        Button("Search", type="submit"),
+        action="/results", method="post"
+    )
+
     result_cards = []
     for result in search_results:
         card = Article(H4(A(result.title, href=f"/snapshot/url_id={result.url_id}")),
@@ -95,7 +101,8 @@ def results(session, search_text: str):
         result_cards.append(card)
 
     return Titled("Search Results",
-                  Main(*result_cards,
+                  Main(search_form,
+                       *result_cards,
                        A("Back to Search", href=f"/search", role="button"),
                        cls="container"))
 
